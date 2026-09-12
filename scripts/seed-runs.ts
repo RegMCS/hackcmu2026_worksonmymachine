@@ -7,8 +7,8 @@
  * every ghost path is guaranteed to be on-track, collide correctly, and replay
  * exactly like a human run.
  */
-import { readFileSync } from 'node:fs';
-import { TrackGeometry } from '../client/src/game/track';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { TrackGeometry, mulberry32 } from '../client/src/game/track';
 import { TUNING, createCar, stepCar, avgSteeringMagnitude, type StepEvent } from '../client/src/game/physics';
 import { GhostRecorder } from '../client/src/game/ghost';
 import { angleDelta, clamp } from '../client/src/util/math';
@@ -21,8 +21,7 @@ const NAMES = [
 ];
 
 interface Skill {
-  gain: number;      // steering aggression
-  lookahead: number; // px ahead the driver aims
+  lookahead: number; // metres ahead the driver aims
   noise: number;     // hand tremor
   bias: number;      // preferred lateral offset (racing line)
   lag: number;       // reaction smoothing, 0..1
@@ -55,25 +54,25 @@ function simulate(geom: TrackGeometry, skill: Skill, seed: number): Omit<Run, '_
   const obstacles = obstacleTable(geom);
   const halfTrack = geom.trackWidth / 2;
 
-  while (car.trackDistance < geom.length && t < 240) {
+  while (car.trackDistance < geom.length * TUNING.LAPS && t < 900) {
     // Choose a lateral line by scoring candidates across the track width, rather
     // than nudging away from one obstacle at a time - sequential nudging walks
     // straight from one cone of a cluster into the next.
     const carS = ((car.trackDistance % geom.length) + geom.length) % geom.length;
-    const margin = halfTrack - TUNING.CAR_WIDTH / 2 - 8;
-    const window = skill.lookahead + 180;
+    const margin = halfTrack - TUNING.CAR_WIDTH / 2 - 0.6;
+    const window = skill.lookahead + 14;
 
     const relevant = obstacles.filter((ob) => {
       if (ob.oil) return false; // oil costs no time, so nobody bothers dodging it
       let ahead = ob.s - carS;
       if (ahead < -geom.length / 2) ahead += geom.length;
       if (ahead > geom.length / 2) ahead -= geom.length;
-      return ahead > -20 && ahead < window;
+      return ahead > -1.5 && ahead < window;
     });
 
     let bestD = skill.bias;
     let bestScore = -Infinity;
-    for (let cand = -margin; cand <= margin; cand += 18) {
+    for (let cand = -margin; cand <= margin; cand += 0.5) {
       let clearance = Infinity;
       for (const ob of relevant) {
         const need = ob.r + TUNING.CAR_WIDTH / 2;
@@ -82,7 +81,7 @@ function simulate(geom: TrackGeometry, skill: Skill, seed: number): Omit<Run, '_
       // Reward clearance, but prefer staying near the habitual line and not
       // swerving hard from where the car already is.
       const score =
-        Math.min(clearance, 70) * 3 -
+        Math.min(clearance, 5) * 3 -
         Math.abs(cand - skill.bias) * 0.25 -
         Math.abs(cand - car.lateralOffset) * 0.55;
       if (score > bestScore) {
@@ -98,7 +97,9 @@ function simulate(geom: TrackGeometry, skill: Skill, seed: number): Omit<Run, '_
     const tx = target.x + right.x * lateral;
     const ty = target.y + right.y * lateral;
     const desired = Math.atan2(ty - car.y, tx - car.x);
-    const cmd = clamp(angleDelta(desired, car.heading) * skill.gain + rand() * skill.noise, -1, 1);
+    const yaw = 2 * TUNING.BASE_SPEED * car.collisionPenalty * Math.sin(angleDelta(desired, car.heading)) / skill.lookahead;
+    const shaped = clamp(yaw / TUNING.MAX_TURN_RATE, -1, 1);
+    const cmd = clamp(Math.sign(shaped) * Math.pow(Math.abs(shaped), 1 / TUNING.STEER_GAMMA) + rand() * skill.noise, -1, 1);
     steer += (cmd - steer) * skill.lag;
 
     events.length = 0;
@@ -106,14 +107,14 @@ function simulate(geom: TrackGeometry, skill: Skill, seed: number): Omit<Run, '_
     t += dt;
     recorder.capture(t, car.x, car.y, car.heading);
 
-    while (nextSector < geom.sectorBoundaries.length && car.trackDistance >= geom.sectorBoundaries[nextSector]) {
+    while (nextSector < geom.sectorBoundaries.length * TUNING.LAPS && car.trackDistance >= geom.sectorEndAt(nextSector)) {
       sectorTimes.push(t - sectorTimes.reduce((a, b) => a + b, 0));
       nextSector++;
     }
   }
 
-  if (car.trackDistance < geom.length) return null; // driver never finished
-  if (sectorTimes.length < geom.def.sectorCount) {
+  if (car.trackDistance < geom.length * TUNING.LAPS) return null; // driver never finished
+  if (sectorTimes.length < geom.sectorBoundaries.length * TUNING.LAPS) {
     sectorTimes.push(t - sectorTimes.reduce((a, b) => a + b, 0));
   }
 
@@ -140,6 +141,7 @@ async function main(): Promise<void> {
 
   const runs: Omit<Run, '_id' | 'createdAt'>[] = [];
   let attempts = 0;
+  const rand = mulberry32(2026);
   while (runs.length < count && attempts < count * 8) {
     attempts++;
     const i = runs.length;
@@ -149,24 +151,29 @@ async function main(): Promise<void> {
     // done this all afternoon. Everything in between is what matchmaking needs.
     const q = i / Math.max(1, count - 1);
     const skill: Skill = {
-      gain: 1.4 + q * 1.7 + Math.random() * 0.35,
-      lookahead: 120 + q * 170 + Math.random() * 50,
-      noise: 0.55 - q * 0.50 + Math.random() * 0.08,
-      bias: (Math.random() - 0.5) * 110 * (1 - q * 0.6),
-      lag: 0.08 + q * 0.26,
-      avoid: Math.min(1, q * 1.15 + Math.random() * 0.2),
+      lookahead: 3 + q * 2 + rand(),
+      noise: 0.08 - q * 0.06 + rand() * 0.01,
+      bias: (rand() - 0.5) * 9 * (1 - q * 0.6),
+      lag: 0.3 + q * 0.3,
+      avoid: Math.min(1, 0.2 + q * 0.8 + rand() * 0.1),
     };
     const run = simulate(geom, skill, 1000 + attempts * 7919);
-    if (!run) continue;
+    if (!run || run.collisionCount > 5 || run.totalTime > geom.length * TUNING.LAPS / TUNING.BASE_SPEED * 1.35) continue;
     run.playerName = NAMES[runs.length % NAMES.length];
     runs.push(run);
   }
 
+  if (runs.length !== count) throw new Error(`Only ${runs.length}/${count} drivers finished`);
   runs.sort((a, b) => a.totalTime - b.totalTime);
   console.log(`simulated ${runs.length} runs`);
   console.log(`  fastest ${runs[0].totalTime.toFixed(2)}s  slowest ${runs[runs.length - 1].totalTime.toFixed(2)}s`);
   console.log(`  median  ${runs[Math.floor(runs.length / 2)].totalTime.toFixed(2)}s`);
   console.log(`  avg path samples ${Math.round(runs.reduce((a, r) => a + r.path.length, 0) / runs.length)}`);
+
+  console.log(`  collisions ${runs.map(r => r.collisionCount).join(', ')}`);
+  console.log(`  off-track seconds ${runs.map(r => r.offTrackDuration).join(', ')}`);
+  if (process.env.SEED_OUTPUT) writeFileSync(process.env.SEED_OUTPUT, JSON.stringify(runs));
+  if (process.env.SEED_DRY_RUN === '1') return;
 
   let ok = 0;
   for (const run of runs) {

@@ -1,0 +1,45 @@
+# CMU Buggy Course
+
+© OpenStreetMap contributors. Street geometry is available under the Open
+Database License (ODbL): https://www.openstreetmap.org/copyright . Elevation data
+comes from Open-Meteo. The attribution is also embedded in the track JSON.
+
+Regenerate with `node scripts/convert-buggy.mjs <git-ref>`; the JSON records the
+source revision. The default ref is `origin/aden`. World coordinates and widths
+are metres. Physics remains on the ground plane.
+
+The converter rotates by ground distance at `finishAt = 0.8564`, resamples at
+approximately 3m spacing to prevent spline overshoot at the inserted start line,
+and preserves elevation in a parallel array. Runtime length is about 1623m.
+There are nine distinct section names, with FINISH STRAIGHT split across the
+start line, giving ten splits per lap and thirty per race.
+
+Integration handoff:
+
+- Renderer: `TrackGeometry.elevationAt(s)` interpolates render-only height;
+  `def.elevation` parallels control points. Camera distances and decorations must
+  use metres. The existing pixel-scale renderer still needs Agent A's port.
+- HUD: `Race.lap`, `Race.laps`, `Race.sectionName`, and
+  `TrackGeometry.sectionNameAt(s)` provide display values. `lap_complete` carries
+  `{lap, laps}`; `sector_time` carries `{sector, lap, section, split}`. Agent D
+  should display the attribution above in the game and project docs.
+- Multiplayer: construct `new TrackGeometry(def, roomSeed)` before creating the
+  race to select deterministic obstacles. The default seed is in the JSON.
+- Persistence: use `geom.def.id` (`buggy-3lap-v1`), not the asset filename
+  `circuit-01`. The new ID isolates incompatible old paths without deleting them.
+  Room-specific obstacle layouts share this ghost pool; ghosts remain visual.
+- Tuning: speed is 30m/s, car width 1.6m, road width remains surveyed 11m.
+  Full-lock turn rate is 34rad/s to satisfy the measured 1.94m return corner
+  (2.19× margin). This aggressive setting needs human hand-steering playtesting.
+
+Verification: typecheck, build, and the curvature, knockback, recorder and
+multilap diagnostics. The additional diagnostic checks late/backward ghost
+seeks, finish ordering, seeded layouts, sections, elevation and lap events.
+
+`npm run seed` generates 24 deterministic three-lap opponents. Optional
+`SEED_DRY_RUN=1` skips upload; `SEED_OUTPUT=/tmp/field.json` saves the generated
+field. Failed finishes, collision-heavy drivers and implausibly slow runs are
+rejected. Local integration seeding uses port 18787 with file store
+`data/buggy-runs.json`; production needs its own reseed after integration.
+
+The optional fantasy course is deferred.

@@ -204,6 +204,22 @@ anything.
   visual, by design.
 - **Single lap only.** Multi-lap racing is not implemented.
 
+## Before demoing somewhere new
+
+- **Check the composition in the actual room.** Test against a bright window
+  behind the player, a dark room, and people walking behind them - all three
+  happen at a venue. If the track edge is ever hard to see, darken the top of the
+  gradient in `#scrim` (`client/src/styles.css`).
+- **Measure latency on the demo machine** with `D`. Expect the webcam to dominate,
+  not the code.
+- **Reset the field between sessions**, keeping the synthetic opponents:
+  ```bash
+  curl -X POST https://YOUR-DOMAIN/api/reset \
+    -H 'content-type: application/json' \
+    -d '{"trackId":"circuit-01","keepSynthetic":true}'
+  ```
+  Note `npm run seed` *adds* to the field rather than replacing it.
+
 ## Credits
 
 Car sprites from the [Kenney Racing Pack](https://kenney.nl/assets/racing-pack),
