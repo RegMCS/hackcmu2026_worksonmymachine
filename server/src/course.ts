@@ -6,15 +6,13 @@
  * That keeps the result redistributable (ODbL, attributed) instead of subject to
  * the Maps terms, which forbid storing derived geometry.
  *
- * Because the race runs three laps, the course must close. A single A->B route
- * is an open path, so the lap is built as a dogbone: out along one side of the
- * road, a hairpin, and back along the other side.
- *
- * Routing the return separately was tried first and does not work. The two
- * directions are different roads (one-way systems), so they cross each other,
- * and a course that crosses itself has no well-defined position along the lap -
- * `project` snaps between the branches and the lap counter jumps. Mirroring a
- * single path cannot cross itself, so the lap is always well defined.
+ * The course is the route as driven: point to point, start and finish in
+ * different places, exactly the shape Maps showed. It is NOT closed into a
+ * circuit. Closing an A->B route means either mirroring it back - which doubles
+ * the road and buries the real shape in a hairpin - or joining the ends through
+ * whatever lies between them. Both produce a map the user did not ask for.
+ * `TrackGeometry` supports open courses, and an open course races one leg
+ * rather than laps.
  */
 import { pathLength, resample, centreOn, shapeReport, selfClearance, densify, projectLatLon, type Control } from '../../shared/course.js';
 
@@ -29,9 +27,9 @@ const ALLOWED_HOSTS = new Set([
 
 const OSRM = 'https://router.project-osrm.org';
 const SAMPLES_PER_SEGMENT = 14;
-/** Control points are spaced this far apart, in final course metres. The
- *  dogbone is only two lanes wide, so coarse spacing lets the spline cut across
- *  the ribbon and the two carriageways touch. */
+/** Control points are spaced this far apart, in final course metres. Dense
+ *  enough that the spline tracks the real corners instead of rounding them off.
+ */
 const CONTROL_SPACING = 4;
 
 export interface CourseOptions {
@@ -46,6 +44,9 @@ export interface GeneratedCourse {
   id: string;
   name: string;
   trackWidth: number;
+  /** Always false: a pasted route is point to point, not a circuit. */
+  closed: false;
+  laps: number;
   sectorCount: number;
   samplesPerSegment: number;
   centerline: Control[];
@@ -59,8 +60,8 @@ export interface GeneratedCourse {
     lapSeconds: number;
     minRadius: number;
     pr: number;
-    /** Metres between the two carriageways at their closest. Below trackWidth
-     *  the lap position is ambiguous - the route doubles back on itself. */
+    /** Metres between the closest two parts of the course. Below trackWidth the
+     *  position along it is ambiguous - the route crosses or doubles back. */
     clearance: number;
     origin: [number, number];
     destination: [number, number];
@@ -146,57 +147,20 @@ async function route(a: [number, number], b: [number, number]): Promise<Leg> {
   };
 }
 
-/**
- * Shifts a leg sideways along its own left-hand normal.
- *
- * The out and back legs follow the same road, so without this they coincide and
- * the car's position along the lap becomes undefined - `project` snaps between
- * them and the lap counter jumps. Offsetting each leg to its own left puts them
- * on opposite sides, exactly like the two carriageways of a real road, leaving
- * `2 * distance` of clearance and turning each end into a hairpin.
- */
-function offsetLeft(pts: { x: number; y: number }[], distance: number): { x: number; y: number }[] {
-  const n = pts.length;
-  return pts.map((p, i) => {
-    const a = pts[Math.max(0, i - 1)];
-    const b = pts[Math.min(n - 1, i + 1)];
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const len = Math.hypot(dx, dy) || 1e-9;
-    // Left normal of the direction of travel.
-    return { x: p.x + (dy / len) * distance, y: p.y - (dx / len) * distance };
-  });
-}
-
-/** Scales the road to final size, then wraps a lane either side of it. */
-function dogbone(centre: { x: number; y: number }[], scale: number, lane: number): { x: number; y: number }[] {
-  const road = centre.map((p) => ({ x: p.x * scale, y: p.y * scale }));
-  return [...offsetLeft(road, lane), ...offsetLeft([...road].reverse(), lane)];
-}
-
-/**
- * Named streets become section labels. The lap runs out and back along one
- * road, so each street is passed twice: once in the first half, once mirrored
- * into the second.
- */
+/** Named streets become section labels, spread across the single leg. */
 function sectionsFrom(leg: Leg): { name: string; at: number }[] {
   const total = leg.distance || 1;
-  const outbound: { name: string; at: number }[] = [];
+  const out: { name: string; at: number }[] = [];
   let travelled = 0;
   for (const step of leg.steps) {
     const named = step.name.trim().toUpperCase();
-    if (named && step.distance > total * 0.06 && outbound[outbound.length - 1]?.name !== named) {
-      outbound.push({ name: named, at: (travelled / total) * 0.5 });
+    if (named && step.distance > total * 0.04 && out[out.length - 1]?.name !== named) {
+      out.push({ name: named, at: travelled / total });
     }
     travelled += step.distance;
   }
-  if (!outbound.length || outbound[0].at > 0.001) outbound.unshift({ name: 'START', at: 0 });
-
-  const back = outbound
-    .filter((sec) => sec.at > 0.001)
-    .map((sec) => ({ name: sec.name, at: 1 - sec.at }))
-    .sort((a, b) => a.at - b.at);
-  return [...outbound, { name: 'HAIRPIN', at: 0.5 }, ...back];
+  if (!out.length || out[0].at > 0.001) out.unshift({ name: 'START', at: 0 });
+  return out;
 }
 
 export async function courseFromMapsUrl(rawUrl: string, opts: CourseOptions): Promise<GeneratedCourse> {
@@ -207,38 +171,26 @@ export async function courseFromMapsUrl(rawUrl: string, opts: CourseOptions): Pr
 
   const lat0 = (origin[1] + destination[1]) / 2;
   const lon0 = (origin[0] + destination[0]) / 2;
-  const centre = projectLatLon(leg.coords, lat0, lon0);
-  const sourceMetres = pathLength(centre, false);
+  const path = projectLatLon(leg.coords, lat0, lon0);
+  const sourceMetres = pathLength(path, false);
 
-  // One lane of clearance each side leaves 2 * LANE between the carriageways,
-  // comfortably wider than the track, so lap position stays unambiguous.
+  // Normalising is a single uniform scale, which is the one transform that
+  // cannot distort the shape: a Catmull-Rom spline is affine equivariant, so
+  // scaling the control points scales arc length by the same factor.
   //
-  // The lane offset must be applied at FINAL scale. Offsetting first and then
-  // scaling the whole loop to hit the target lap shrinks the gap by the same
-  // factor, which is how the carriageways end up on top of each other again.
-  const LANE = opts.trackWidth;
+  // Converge on the length of the SPLINE, not of the polyline it is fitted
+  // through - the spline cuts corners and runs shorter, so matching the
+  // polyline leaves the course short. The control count is fixed up front, or
+  // the spline length jumps between iterations and the correction never settles.
   const targetLength = opts.speed * opts.targetLapSeconds;
-
-  // A lap is the road twice plus the two hairpins, so solve for the scale that
-  // lands on the target, then confirm it and correct once for the bends.
-  //
-  // Converge on the length of the SPLINE, not of the offset polyline. The game
-  // drives the densified Catmull-Rom, which cuts corners and so runs shorter
-  // than the polyline it was fitted through; matching the polyline to the target
-  // leaves the actual lap several percent short.
-  //
-  // Loop length is close to affine in the scale (two carriageways plus
-  // fixed-size hairpins), so the correction converges in a few passes.
-  // Fixed for the whole search: the final lap length is known up front, and
-  // letting the count drift with the scale makes the spline length jump between
-  // iterations so the correction never settles.
-  const count = Math.max(48, Math.round(targetLength / CONTROL_SPACING));
+  const count = Math.max(24, Math.round(targetLength / CONTROL_SPACING));
   const build = (scale: number) => {
-    const control = resample(dogbone(centre, scale, LANE), count, true).map((p) => [p.x, p.y] as Control);
-    return { control, length: pathLength(densify(control, SAMPLES_PER_SEGMENT, true), true) };
+    const scaled = path.map((p) => ({ x: p.x * scale, y: p.y * scale }));
+    const control = resample(scaled, count, false).map((p) => [p.x, p.y] as Control);
+    return { control, length: pathLength(densify(control, SAMPLES_PER_SEGMENT, false), false) };
   };
 
-  let scale = (targetLength - 2 * Math.PI * LANE) / (2 * Math.max(sourceMetres, 1e-6));
+  let scale = targetLength / Math.max(sourceMetres, 1e-6);
   let built = build(scale);
   for (let i = 0; i < 12; i++) {
     if (Math.abs(built.length - targetLength) < targetLength * 0.0005) break;
@@ -247,13 +199,15 @@ export async function courseFromMapsUrl(rawUrl: string, opts: CourseOptions): Pr
   }
 
   const scaled = centreOn(built.control, { x: 0, y: 0 });
-  const report = shapeReport(scaled, SAMPLES_PER_SEGMENT, true, opts.speed, 1);
+  const report = shapeReport(scaled, SAMPLES_PER_SEGMENT, false, opts.speed, 1);
 
   const sections = sectionsFrom(leg);
   return {
     id: `url-${hash(full)}`,
     name: label,
     trackWidth: opts.trackWidth,
+    closed: false,
+    laps: 1,
     sectorCount: sections.length,
     samplesPerSegment: SAMPLES_PER_SEGMENT,
     centerline: scaled.map(([x, y]) => [round(x), round(y)] as Control),
@@ -266,7 +220,7 @@ export async function courseFromMapsUrl(rawUrl: string, opts: CourseOptions): Pr
       lapSeconds: +(report.length / opts.speed).toFixed(1),
       minRadius: +report.minRadius.toFixed(2),
       pr: Math.round(report.pr),
-      clearance: +selfClearance(densify(scaled, SAMPLES_PER_SEGMENT, true), true).toFixed(1),
+      clearance: +selfClearance(densify(scaled, SAMPLES_PER_SEGMENT, false), false).toFixed(1),
       origin,
       destination,
     },
