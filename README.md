@@ -60,6 +60,21 @@ over all of them. All three are gitignored.
 | `K` | Switch between hand and keyboard steering |
 | `M` | Mute or unmute sound effects |
 
+### Choosing a commentator
+
+The name screen carries a **Commentator** picker: five personas (hype, deadpan,
+rival, nature documentary, pirate) defined in
+[`shared/personas.ts`](shared/personas.ts), plus a voice dropdown populated from
+whatever voices the ElevenLabs account actually has - free plans can only
+synthesise with voices added to the account, so a hardcoded id fails at
+synthesis time.
+
+The persona changes the commentator's character and delivery, never the facts:
+it is spliced onto a base prompt that still carries the event vocabulary and the
+rule that there is no throttle, brake or gearbox. Both choices persist in
+`localStorage`. With no ElevenLabs key the dropdown stays hidden and everything
+else works unchanged.
+
 ---
 
 ## Tuning
@@ -172,6 +187,11 @@ anything.
   per character, so live generation alone covers roughly a dozen races. The
   pre-generated phrase bank is therefore the primary path and live generation is
   capped at 4 calls per race; the server also enforces `TTS_CHAR_BUDGET`.
+- **The commentator persona colours live lines only.** The phrase bank was
+  synthesised once in the `hype` register and is not regenerated per persona -
+  that would cost roughly a thousand credits each. So a non-default persona is
+  heard on the handful of contextual moments per race, and the common events
+  keep the house voice. Picking `hype` is the one fully consistent option.
 - **Live TTS goes through the server rather than a direct browser WebSocket.**
   The token-minting endpoint for the lower-latency direct path exists
   (`/api/tts-token`) but is unverified, so the reliable HTTP path is wired up.

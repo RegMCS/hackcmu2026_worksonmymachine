@@ -95,6 +95,9 @@ scripts/diag/  assertions about physics and geometry
 - **ElevenLabs free tier is ~10,000 credits/month** and Flash bills 0.5 credits
   per character. The pre-generated phrase bank is the primary commentary path;
   live generation is capped per race. Do not make live generation the default.
+  The commentator persona therefore applies to live lines only - regenerating the
+  54-phrase bank per persona would cost about a thousand credits each. `hype` is
+  the default because the bank was synthesised in that register.
 - **Node ESM needs explicit `.js` extensions** in relative imports. `tsx` papers
   over this in dev and it only fails in the production build.
 

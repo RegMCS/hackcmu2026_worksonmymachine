@@ -3,6 +3,10 @@
 Live: <https://ghostrace.thdxg.dev> · Repo: `main` · Deploy runbook:
 [`deploy/README.md`](deploy/README.md)
 
+The Vultr box is checked out on `main` and rebuilt from it. It previously sat on
+a branch named `ghostrace`; see the branch-hygiene note in the runbook before
+assuming what is deployed.
+
 Parallel integration work is being handed to four agents — see
 [`todo/`](todo/) for their prompts and
 [`INTEGRATION-PLAN.md`](INTEGRATION-PLAN.md) for the task breakdown.
@@ -27,20 +31,24 @@ block at the top of [`client/src/game/physics.ts`](client/src/game/physics.ts):
 
 After any track change: `npx tsx scripts/diag/curvature.ts`, ratio above ~2x.
 
-### 2. Atlas is rejecting the server
-`/api/health` reports `"store":"file"` instead of `"mongo"`, so runs live on one
-box and judges do not race each other's ghosts.
-
-Add `64.177.44.73/32` under **Atlas → Network Access**, then:
+### ~~2. Atlas is rejecting the server~~ — done
+`64.177.44.73/32` is allowlisted under Atlas → Network Access. `/api/health`
+reports `"store":"mongo"`, the 24 synthetic opponents are in Atlas, and ghosts
+come back with full path data. Verified end to end:
 
 ```bash
-ssh root@64.177.44.73 'systemctl restart ghostrace'
-curl -s https://ghostrace.thdxg.dev/api/health      # expect "store":"mongo"
-API_BASE=https://ghostrace.thdxg.dev npm run seed   # file-store runs do not carry over
+curl -s https://ghostrace.thdxg.dev/api/health                  # "store":"mongo"
+curl -s 'https://ghostrace.thdxg.dev/api/ghosts?trackId=circuit-01&limit=2'
+curl -s -X POST https://ghostrace.thdxg.dev/api/matchmake \
+  -H 'content-type: application/json' \
+  -d '{"trackId":"circuit-01","projectedTime":38,"playerName":"x","limit":4}'
 ```
 
-Atlas rejects unlisted IPs during the TLS handshake, so the failure reads as
-`SSL alert number 80` rather than an auth error.
+The box's egress IP is exactly `64.177.44.73` with no IPv6, so the single `/32`
+entry is the whole fix. If it ever regresses the symptom is `SSL alert number
+80` — Atlas rejects unlisted IPs during the TLS handshake, so it reads as a
+crypto failure rather than an auth error. Real runs recorded before the switch
+were on the file store and did not carry over; the seeded field did.
 
 ---
 
@@ -63,8 +71,13 @@ walking behind. If the track edge is ever hard to see, darken the top of the
 gradient in `#scrim` ([`client/src/styles.css`](client/src/styles.css)).
 
 ### 5. Lock down Atlas network access
-If onboarding left it at `0.0.0.0/0`, restrict it to the Vultr IP once item 2 is
-done.
+Item 2 is done, so this is now the only Atlas item left. Check the entry that
+was added: if it is `0.0.0.0/0` rather than `64.177.44.73/32`, tighten it. The
+box egresses from exactly `64.177.44.73` and has no IPv6, so a `/32` is
+sufficient and nothing else needs to reach the cluster.
+
+Anyone seeding or running scripts against Atlas from a laptop needs their own
+address listed too — that is the usual reason someone widens it and forgets.
 
 ---
 
