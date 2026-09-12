@@ -243,15 +243,20 @@ Any deploy while that file exists declines with exit 75; CI goes green with a
 warning that production is behind `main`, rather than red. Delete the file to
 resume, then deploy the backlog with `sudo ghostrace-update`.
 
-For an unattended version, set a quiet window in `/etc/default/ghostrace-deploy`:
+A deploy also declines while any multiplayer room is open — `/api/health`
+reports the count, so this is an exact answer to "is anyone mid-race", not a
+guess. It is on by default and clears itself when the last player leaves; set
+`SKIP_IF_BUSY=0` to turn it off.
+
+For a wider unattended window, set a quiet period in
+`/etc/default/ghostrace-deploy`:
 
 ```bash
 QUIET_MINUTES=15
 ```
 
-A deploy then declines if anyone finished a run in the last 15 minutes, on the
-grounds that a restart drops every connection in flight and the visible symptom
-is somebody's race ending. It defaults to `0` (off), because a busy box would
+A deploy then declines if anyone finished a run in the last 15 minutes. This
+catches solo play, where there is no room to count. It defaults to `0` (off), because a busy box would
 otherwise never deploy at all. Every failure of the check - endpoint down,
 unparseable response, no runs yet - is treated as "quiet", so a broken health
 endpoint cannot wedge deploys permanently.

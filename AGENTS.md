@@ -48,8 +48,9 @@ comes from `.nvmrc` in both places — keep the two in step.
 **A green merge to `main` deploys itself.** The same workflow SSHes to the box
 and runs `deploy/update.sh` for the commit that just passed. Two things follow:
 a merge is a production change, and a restart drops every connection in flight.
-To stop deploys landing during a demo, `sudo touch /opt/ghostrace/DEPLOY_HOLD`
-on the box — CI then goes green with a warning instead of deploying. Setup and
+Deploys already decline while a multiplayer room is open; to stop them for
+longer, `sudo touch /opt/ghostrace/DEPLOY_HOLD` on the box — CI then goes green
+with a warning instead of deploying. Setup and
 the other switches are in `deploy/README.md` section 8.
 
 ## Invariants — do not break these

@@ -49,9 +49,29 @@ if [ -e "$APP_DIR/DEPLOY_HOLD" ] && [ "$FORCE" != 1 ]; then
   exit 75
 fi
 
-# A restart drops every in-flight connection. A completed run in the last few
-# minutes means someone is playing, and the visible symptom of restarting under
-# them is their race ending, not a log line anyone will read.
+# A restart drops every in-flight connection, and since the multiplayer relay
+# shares the API port that now means ending live races, not just a reload.
+# /api/health reports the open room count, which is an exact answer to "is
+# anyone mid-race right now" - so this one is on by default. It clears itself
+# when the last player leaves; DEPLOY_HOLD is the switch for a longer freeze.
+if [ "${SKIP_IF_BUSY:-1}" != 0 ] && [ "$FORCE" != 1 ]; then
+  health=$(curl -fsS --max-time 5 "$HEALTH_URL" 2>/dev/null || echo '')
+  if [ -n "$health" ]; then
+    rooms=$(printf '%s' "$health" | node -e '
+      let s = "";
+      process.stdin.on("data", (d) => (s += d)).on("end", () => {
+        try { const h = JSON.parse(s); console.log(Number(h?.rooms) || 0); }
+        catch { console.log(0); }   // unreadable health: fail open, not stuck
+      });' 2>/dev/null || echo 0)
+    if [ "$rooms" -gt 0 ]; then
+      echo "DECLINED: $rooms multiplayer room(s) open - a restart would end them."
+      exit 75
+    fi
+  fi
+fi
+
+# A completed run in the last few minutes means someone is playing solo, where
+# there is no room to count.
 if [ "$QUIET_MINUTES" != 0 ] && [ "$FORCE" != 1 ]; then
   recent=$(curl -fsS --max-time 5 "$RECENT_URL" 2>/dev/null || echo '')
   if [ -n "$recent" ]; then
