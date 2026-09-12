@@ -5,8 +5,8 @@ import { Race } from './game/race';
 import { TUNING } from './game/physics';
 import { HandTracker, startCamera, type TrackingFrame } from './tracking/hands';
 import { Calibrator, SteeringController } from './tracking/steering';
-import { WindshieldCamera } from './render/projection';
 import { SceneRenderer } from './render/scene';
+import { demoHills, elevationFromDef } from './render/elevation';
 import { OverlayRenderer } from './render/overlay';
 import { Minimap } from './render/minimap';
 import {
@@ -48,11 +48,10 @@ const steering = new SteeringController();
 const calibrator = new Calibrator();
 const commentator = new Commentator();
 const sfx = new Sfx();
-const camera = new WindshieldCamera();
 
 let tracker: HandTracker | null = null;
 let race: Race | null = null;
-let scene: SceneRenderer;
+let scene: SceneRenderer | null = null;
 let overlay: OverlayRenderer;
 let minimap: Minimap;
 let leaderboard: RunSummary[] = [];
@@ -79,20 +78,19 @@ function resize(): void {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = window.innerWidth;
   const h = window.innerHeight;
-  for (const c of [gameCanvas, overlayCanvas]) {
-    c.width = Math.round(w * dpr);
-    c.height = Math.round(h * dpr);
-    const ctx = c.getContext('2d')!;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-  camera.resize(w, h);
+  overlayCanvas.width = Math.round(w * dpr);
+  overlayCanvas.height = Math.round(h * dpr);
+  overlayCanvas.getContext('2d')!.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // The game canvas is WebGL now; the renderer owns its backing size.
+  scene?.resize(w, h, dpr);
 }
 window.addEventListener('resize', resize);
 
 // --- Boot ------------------------------------------------------------------
 async function boot(): Promise<void> {
   const geom = await loadTrack(`/tracks/${TRACK_ID}.json`);
-  scene = new SceneRenderer(gameCanvas.getContext('2d')!);
+  scene = new SceneRenderer(gameCanvas);
+  scene.setTrack(geom, elevationFromDef(geom.def, geom.length));
   overlay = new OverlayRenderer(overlayCanvas.getContext('2d')!);
   minimap = new Minimap(minimapCanvas.getContext('2d')!, geom, minimapCanvas.width, minimapCanvas.height);
   resize();
@@ -158,6 +156,10 @@ async function boot(): Promise<void> {
       },
       clearHands() {
         simulatedFrame = null;
+      },
+      /** Preview the 3D elevation path with synthetic hills (0 restores the track's own data). */
+      hills(amplitude = 40) {
+        if (race && scene) scene.setTrack(race.geom, amplitude ? demoHills(race.geom.length, amplitude) : elevationFromDef(race.geom.def, race.geom.length));
       },
       /** Jump the car to a point on the track, for testing without driving a lap. */
       seek(distance: number) {
@@ -392,24 +394,19 @@ function updateCalibration(frame: TrackingFrame | null, dt: number): void {
 }
 
 function renderRace(dt: number): void {
-  if (!race) return;
+  if (!race || !scene) return;
   const w = window.innerWidth;
   const h = window.innerHeight;
   const frame = simulatedFrame ?? tracker?.lastFrame ?? null;
 
-  // Screen shake decays toward zero and is applied at projection time.
-  camera.shakeX = (Math.random() - 0.5) * race.shake;
-  camera.shakeY = (Math.random() - 0.5) * race.shake;
-  camera.setView(race.car.x, race.car.y, race.car.heading);
-
   const racers = race.buildRacerStates();
   scene.render({
     geom: race.geom,
-    camera,
     racers,
     localTrackDistance: race.car.trackDistance,
     offTrack: race.car.offTrack,
     oiled: race.oiled,
+    shake: race.shake,
   });
 
   overlay.clear(w, h);
@@ -561,6 +558,7 @@ function updateDebug(): void {
     `latency    ${l && l.lastMs ? l.lastMs.toFixed(1) + ' ms' : 'n/a (keyboard)'}  p50 ${l && l.p50 ? l.p50.toFixed(1) : '--'}  p95 ${l && l.p95 ? l.p95.toFixed(1) : '--'}`,
     `  source   ${l?.label ?? 'n/a - no camera'}`,
     `inference  ${tracker ? tracker.inferenceMs.toFixed(1) : '--'} ms`,
+    `render     ${scene ? `${scene.stats.renderMs.toFixed(1)} ms submit, ${scene.stats.calls} draw calls, ${scene.stats.triangles} tris` : '--'}`,
     `steer      raw ${steering.raw.toFixed(3)}  smooth ${steering.value.toFixed(3)}`,
     `mode       ${mode}${steering.calibrated ? ' (calibrated)' : ''}`,
     race ? `race       ${race.phase} t=${race.time.toFixed(2)} s=${race.car.trackDistance.toFixed(0)}/${race.geom.length.toFixed(0)}` : '',
