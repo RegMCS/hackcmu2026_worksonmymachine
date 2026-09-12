@@ -34,7 +34,7 @@ npm run check:secrets    # the repo is public; see "Secrets"
 | Script | Asserts |
 |---|---|
 | `diag/knockback.ts` | collisions never stall or reverse the car |
-| `diag/curvature.ts` | every corner is takeable — exits 1 below a 2x radius ratio |
+| `diag/curvature.ts` | every corner on every course is takeable — 2x radius ratio |
 | `diag/steering.ts` | every sensitivity setting can reach the tightest corner |
 | `diag/multilap.ts` | lap sequencing, ghost seeks, standings, events |
 | `diag/recorder.ts` | ghost sampling rate — **prints only, does not fail** |
@@ -114,6 +114,15 @@ scripts/diag/  assertions about physics and geometry
   `scripts/diag/curvature.ts` and keep the ratio above ~2x. A first version of
   the track was at 0.98x; the symptom was every driver bleeding seconds
   off-track, not an obvious crash.
+- **Measure curvature over a car length, never per sample.** The courses are
+  surveyed OSM polylines, so sampling heading change over 0.5m reports the sharp
+  vertices of the *survey* as corners: leventhal reads 1.91m over 0.5m but 3.82m
+  over 1m, and a 1.91m centreline radius on an 11m road is not geometry, it is
+  noise — the inner edge would fold through itself. That phantom hairpin forced
+  `MAX_TURN_RATE` to 34 to keep its 2x margin, which is ~2x more lock than any
+  real corner needs, and *that* is what made the steering violent at every
+  sensitivity setting. `scripts/diag/trackCurvature.ts` is the one place the
+  window is defined; both curvature checks use it.
 - **Gemini 3.x rejects `thinkingBudget`** with a 400. Use `thinkingLevel`.
   At `medium` the model returns an *empty* string because reasoning consumes the
   whole output budget. `minimal` is what we ship.

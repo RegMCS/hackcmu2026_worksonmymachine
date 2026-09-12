@@ -8,18 +8,24 @@ export const TUNING = {
   BASE_SPEED: 30,
 
   // --- Steering ----------------------------------------------------------
-  /** Full lock covers the surveyed return loop (1.94m minimum radius). */
-  MAX_TURN_RATE: 34,
+  /** Full lock covers the tightest corner on any course with a 2x radius margin,
+   *  measured over a car length - see scripts/diag/trackCurvature.ts. Sampling
+   *  curvature per-0.5m instead reports polyline vertex noise as 1.9m hairpins
+   *  and forces this to ~34, which is 2x more lock than any real corner needs
+   *  and makes the whole steering range violent no matter how the curve is
+   *  shaped. Raise this only against a corner that survives the car-length
+   *  probe. */
+  MAX_TURN_RATE: 20,
   /** Hand rotation, in degrees, that counts as full lock in either direction.
    *  Slider midpoint, not a fixed value - see steerFeelFor(). */
-  FULL_LOCK_DEG: 72.5,
+  FULL_LOCK_DEG: 80,
   /** Steering response curve. 1 = linear; >1 softens the centre for fine control.
    *  Slider midpoint, not a fixed value. It has to be well above 1 because the
    *  track asks for a huge dynamic range: 95% of the lap needs under 5% of full
    *  lock, but the return loop needs 46% of it. A near-linear curve crams all
    *  normal driving into the first few degrees of hand rotation, where tracking
    *  jitter lives. */
-  STEER_GAMMA: 2.45,
+  STEER_GAMMA: 2.7,
   /** Ends of the sensitivity slider.
    *
    *  The slider moves the curve AND how far the hands travel to reach full lock.
@@ -28,16 +34,16 @@ export const TUNING = {
    *  merely hard.
    *
    *  Curve alone is not enough, which is worth knowing before someone trims this
-   *  back to one knob. MAX_TURN_RATE is 2.2x what the tightest corner needs, so
-   *  with full lock a mere 55 degrees away the top of the range stays violent
-   *  however flat the centre is - at gamma 3.1 a 30-degree hand rotation still
-   *  span the car at ~300 deg/sec. Widening the travel is what calms it.
+   *  back to one knob. MAX_TURN_RATE is about 2x what the tightest corner needs,
+   *  so if full lock sits close to the hands the top of the range stays violent
+   *  however flat the centre is. Widening the travel is what calms it, and the
+   *  overall level is set by MAX_TURN_RATE - not by this pair.
    *
    *  scripts/diag/steering.ts asserts the tightest corner on every course stays
    *  reachable across the whole slider. */
-  STEER_GAMMA_SHARPEST: 1.3,
-  STEER_GAMMA_SOFTEST: 3.6,
-  FULL_LOCK_DEG_SHARPEST: 45,
+  STEER_GAMMA_SHARPEST: 1.6,
+  STEER_GAMMA_SOFTEST: 3.8,
+  FULL_LOCK_DEG_SHARPEST: 60,
   FULL_LOCK_DEG_SOFTEST: 100,
   /** Hand rotation a player can actually produce holding a mimed wheel. The
    *  softest setting must keep the tightest corner inside this. */

@@ -7,37 +7,13 @@
  * every position on the slider, the tightest corner on every course must be
  * reachable inside a hand rotation a player can actually produce.
  */
-import { readFileSync, readdirSync } from 'node:fs';
-import { TrackGeometry } from '../../client/src/game/track';
 import { TUNING, steerFeelFor } from '../../client/src/game/physics';
-import type { TrackDef } from '../../shared/types';
+import { courseFiles, loadCourse, peakDemand, PROBE_WINDOW } from './trackCurvature';
 
-const STEP = 0.5;
-
-/** Turn rate the tightest corner on a course demands at full speed, rad/sec. */
-function peakDemand(g: TrackGeometry): number {
-  let worst = Infinity;
-  for (let s = 0; s < g.length; s += STEP) {
-    const a = g.pointAt(s);
-    const b = g.pointAt(s + STEP);
-    let dh = b.heading - a.heading;
-    while (dh > Math.PI) dh -= Math.PI * 2;
-    while (dh < -Math.PI) dh += Math.PI * 2;
-    const r = Math.abs(dh) > 1e-6 ? STEP / Math.abs(dh) : Infinity;
-    if (r < worst) worst = r;
-  }
-  return TUNING.BASE_SPEED / worst;
-}
-
-const courses = readdirSync('client/public/tracks')
-  .filter((f) => f.endsWith('.json') && f !== 'manifest.json')
-  .map((f) => {
-    const def = JSON.parse(readFileSync(`client/public/tracks/${f}`, 'utf8')) as TrackDef;
-    return { file: f, demand: peakDemand(new TrackGeometry(def)) };
-  });
+const courses = courseFiles().map((f) => ({ file: f, demand: peakDemand(loadCourse(f)) }));
 
 const hardest = courses.reduce((a, b) => (b.demand > a.demand ? b : a));
-console.log('peak turn-rate demand by course:');
+console.log(`peak turn-rate demand by course (measured over ${PROBE_WINDOW}m):`);
 for (const c of courses) {
   console.log(`  ${c.file.padEnd(18)} ${c.demand.toFixed(1)} rad/s = ${((c.demand / TUNING.MAX_TURN_RATE) * 100).toFixed(0)}% of full lock`);
 }

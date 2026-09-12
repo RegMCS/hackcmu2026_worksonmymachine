@@ -1,29 +1,33 @@
-import { readFileSync } from 'node:fs';
-import { TrackGeometry } from '../../client/src/game/track';
+/**
+ * Every corner must be takeable. With no brake, a corner tighter than the car's
+ * minimum turn radius is impossible rather than merely hard, so this keeps a 2x
+ * margin between the tightest corner and what the car can turn.
+ *
+ * See trackCurvature.ts for why the tightest corner is measured over a car
+ * length and not per sample.
+ */
 import { TUNING } from '../../client/src/game/physics';
-import type { TrackDef } from '../../shared/types';
+import { courseFiles, loadCourse, tightestCorner, PROBE_WINDOW } from './trackCurvature';
 
-const def = JSON.parse(readFileSync('client/public/tracks/circuit-01.json','utf8')) as TrackDef;
-const g = new TrackGeometry(def);
 const minRadiusCar = TUNING.BASE_SPEED / TUNING.MAX_TURN_RATE;
-console.log(`car min turn radius @full speed: ${minRadiusCar.toFixed(0)}m`);
-console.log(`car min turn radius @off-track (60%): ${(TUNING.BASE_SPEED*0.6/TUNING.MAX_TURN_RATE).toFixed(0)}m`);
+console.log(`corner radii measured over ${PROBE_WINDOW}m (one car length)`);
+console.log(`car min turn radius @full speed: ${minRadiusCar.toFixed(2)}m`);
+console.log(`car min turn radius @off-track (60%): ${(TUNING.BASE_SPEED * 0.6 / TUNING.MAX_TURN_RATE).toFixed(2)}m\n`);
 
-const STEP = 0.5;
-let worst = {s:0, r:Infinity};
-const tight: {s:number,r:number}[] = [];
-for (let s=0; s<g.length; s+=STEP) {
-  const a=g.pointAt(s), b=g.pointAt(s+STEP);
-  let dh=b.heading-a.heading;
-  while(dh>Math.PI)dh-=Math.PI*2; while(dh<-Math.PI)dh+=Math.PI*2;
-  const r = Math.abs(dh)>1e-6 ? STEP/Math.abs(dh) : Infinity;
-  if (r<worst.r) worst={s,r};
-  if (r < 400) tight.push({s,r});
+let failed = false;
+for (const file of courseFiles()) {
+  const g = loadCourse(file);
+  const worst = tightestCorner(g);
+  const ratio = worst.radius / minRadiusCar;
+  if (ratio <= 2) failed = true;
+  console.log(
+    `  ${file.padEnd(18)} tightest ${worst.radius.toFixed(2).padStart(6)}m at s=${worst.at.toFixed(0).padStart(4)}` +
+      `  ratio ${ratio.toFixed(2)}x ${ratio > 2 ? '' : '  <-- UNDER 2x'}`,
+  );
 }
-console.log(`tightest corner radius: ${worst.r.toFixed(0)}m at s=${worst.s}`);
-console.log(`corners under 400m radius: ${tight.length} samples`);
-console.log(`ratio tightest/car-min: ${(worst.r/minRadiusCar).toFixed(2)}x  (want >2x for comfort)`);
-// how much of the lap is tight?
-console.log(`tight fraction of lap: ${(tight.length*STEP/g.length*100).toFixed(1)}%`);
 
-if (worst.r / minRadiusCar <= 2) process.exit(1);
+if (failed) {
+  console.log('\nFAIL - a corner is too tight for the car to take with margin');
+  process.exit(1);
+}
+console.log('\nPASS - every corner on every course clears the 2x radius margin');
