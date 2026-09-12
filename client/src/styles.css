@@ -549,3 +549,70 @@ body.video-panel #video {
   z-index: 4;
 }
 body.video-panel #overlay { z-index: 4; }
+/* --- Track picker -------------------------------------------------------- */
+.tp {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) auto;
+  grid-template-areas: "list preview" "url url" "go go";
+  gap: 14px 18px;
+  width: 100%;
+}
+.tp-list {
+  grid-area: list;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 230px;
+  overflow-y: auto;
+}
+.tp-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+.tp-item:hover { background: rgba(255, 255, 255, 0.07); }
+.tp-item[aria-selected="true"] {
+  border-color: var(--accent);
+  background: rgba(56, 189, 248, 0.12);
+}
+.tp-item b { font-size: 14px; }
+.tp-item span { color: var(--muted); font-size: 12px; }
+
+.tp-right { grid-area: preview; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.tp-preview {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.35);
+}
+.tp-title { font-size: 14px; font-weight: 700; }
+.tp-stats { color: var(--muted); font-size: 12px; }
+.tp-attr { color: var(--muted); font-size: 10px; line-height: 1.35; max-width: 260px; }
+
+.tp-url { grid-area: url; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tp-url label { color: var(--muted); font-size: 12px; }
+.tp-url-row { display: flex; gap: 8px; min-width: 0; }
+.tp-url-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+  font: inherit;
+}
+.tp-status { font-size: 12px; min-height: 16px; color: var(--muted); }
+.tp-status.good { color: var(--good); }
+.tp-status.bad { color: var(--bad); }
+.tp-go { grid-area: go; }
+.tp-status.warn { color: var(--warn); }

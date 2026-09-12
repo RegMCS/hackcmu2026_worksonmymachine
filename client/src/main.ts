@@ -1,6 +1,6 @@
 import QRCode from 'qrcode';
 import type { RunSummary } from '../../shared/types';
-import { loadTrack } from './game/track';
+import { loadTrack, TrackGeometry, type CourseDef } from './game/track';
 import { Race } from './game/race';
 import { TUNING } from './game/physics';
 import { HandTracker, startCamera, type TrackingFrame } from './tracking/hands';
@@ -17,6 +17,7 @@ import {
   spriteUrl,
 } from './render/carSprites';
 import { Hud, renderLeaderboard, escapeHtml } from './hud/hud';
+import { TrackPicker, type PickableCourse } from './hud/trackPicker';
 import { describeStyle, findRivalRun, nearestNeighbour, renderSectorBars, rivalLine } from './hud/results';
 import { buildPersonaPicker } from './hud/personaPicker';
 import { Commentator } from './audio/commentary';
@@ -40,6 +41,7 @@ const debugEl = $<HTMLPreElement>('debug');
 const screens = {
   permission: $('screen-permission'),
   name: $('screen-name'),
+  track: $('screen-track'),
   calibrate: $('screen-calibrate'),
   results: $('screen-results'),
   qr: $('screen-qr'),
@@ -51,6 +53,7 @@ const steering = new SteeringController();
 const calibrator = new Calibrator();
 const commentator = new Commentator();
 const sfx = new Sfx();
+let picker: TrackPicker | null = null;
 
 let tracker: HandTracker | null = null;
 let race: Race | null = null;
@@ -140,7 +143,6 @@ async function boot(): Promise<void> {
   scene.setTrack(geom, (s) => geom.elevationAt(s));
   applyVideoLayout();
   overlay = new OverlayRenderer(overlayCanvas.getContext('2d')!);
-  minimap = new Minimap(minimapCanvas.getContext('2d')!, geom, minimapCanvas.width, minimapCanvas.height);
   resize();
 
   spritesLoaded = await preloadCarSprites();
@@ -150,26 +152,7 @@ async function boot(): Promise<void> {
     commentator.voiceId = voiceId;
   });
 
-  race = new Race({
-    trackId: geom.def.id,
-    playerName: playerName || 'Anon',
-    geom,
-    colorIndex: carColor,
-    carShape,
-  });
-  race.bus.on((e) => {
-    if (!race) return;
-    switch (e.type) {
-      case 'collision': sfx.impact(1); break;
-      case 'oil': sfx.oil(); break;
-      case 'near_miss': sfx.nearMiss(); break;
-      case 'race_finish':
-        sfx.finish();
-        mp.sendFinish(e.at);
-        break;
-    }
-    commentator.offer(e, race.time, commentaryContext());
-  });
+  installRace(geom);
 
   // Surface every commentary line on screen, cached or live, and pull the
   // effects down underneath it so the line stays intelligible.
@@ -233,6 +216,46 @@ async function boot(): Promise<void> {
   }
 
   requestAnimationFrame(loop);
+}
+
+/**
+ * Binds a course to the renderers and the race. Called once at boot and again
+ * whenever a different course is chosen, so switching tracks does not need a
+ * page reload.
+ */
+function installRace(geom: TrackGeometry): void {
+  minimap = new Minimap(minimapCanvas.getContext('2d')!, geom, minimapCanvas.width, minimapCanvas.height);
+  race = new Race({
+    trackId: geom.def.id,
+    playerName: playerName || 'Anon',
+    geom,
+    colorIndex: carColor,
+    carShape,
+  });
+  race.bus.on((e) => {
+    if (!race) return;
+    switch (e.type) {
+      case 'collision': sfx.impact(1); break;
+      case 'oil': sfx.oil(); break;
+      case 'near_miss': sfx.nearMiss(); break;
+      case 'race_finish':
+        sfx.finish();
+        mp.sendFinish(e.at);
+        break;
+    }
+    commentator.offer(e, race.time, commentaryContext());
+  });
+}
+
+/** Chosen from the picker: rebuild everything bound to the course, then go. */
+function applyCourse(def: PickableCourse): void {
+  installRace(new TrackGeometry(def as CourseDef));
+  void race?.loadGrid();
+  void refreshLeaderboard();
+  screens.track.hidden = true;
+  // Calibrate before the lobby so a synced start is not spent holding a pose.
+  if (mode === 'hands') beginCalibration();
+  else showLobby();
 }
 
 /** Fresh race context for the commentator, evaluated at the moment of speaking. */
@@ -375,11 +398,18 @@ const submitName = () => {
     (race as any).opts.colorIndex = carColor;
     (race as any).opts.carShape = carShape;
   }
-  void race?.loadGrid();
-  // Calibrate before the lobby so a synced start is not spent holding a pose.
-  if (mode === 'hands') beginCalibration();
-  else showLobby();
+  goToTrack();
 };
+
+/** Course selection sits between naming and calibration so the player sees the
+ *  shape they are about to drive before the camera work starts. */
+function goToTrack(): void {
+  screens.track.hidden = false;
+  if (!picker) {
+    picker = new TrackPicker($('track-picker'), applyCourse);
+    void picker.load();
+  }
+}
 $('btn-name').addEventListener('click', submitName);
 $<HTMLInputElement>('input-name').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') submitName();
