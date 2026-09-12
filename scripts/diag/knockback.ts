@@ -20,10 +20,10 @@ let maxHeadingJump = 0;
 for (const ob of geom.obstacles) {
   if (ob.type === 'oil') continue;
   const car = createCar(geom);
-  // Start 140px before the obstacle, pointed straight at it.
+  // Start 10m before the obstacle, pointed straight at it.
   const approach = Math.atan2(ob.y - 0, ob.x - 0);
-  car.x = ob.x - Math.cos(approach) * 140;
-  car.y = ob.y - Math.sin(approach) * 140;
+  car.x = ob.x - Math.cos(approach) * 10;
+  car.y = ob.y - Math.sin(approach) * 10;
   car.heading = approach;
   const proj = geom.project(car.x, car.y);
   car.trackDistance = proj.s;
@@ -54,16 +54,19 @@ for (const ob of geom.obstacles) {
     prevX = car.x;
     prevY = car.y;
     prevHeading = car.heading;
+    if (t > car.collisionGraceUntil + TUNING.COLLISION_RECOVERY_SEC) {
+      if (car.collisionPenalty < 0.99) throw new Error('Collision penalty did not recover');
+    }
     collisions += events.filter((e) => e.type === 'collision').length;
   }
 }
 
 console.log(`head-on impacts tested : ${collisions}`);
-console.log(`min forward speed      : ${worstForward.toFixed(1)} px/s  (must be > 0)`);
-console.log(`min total speed        : ${worstDistStep.toFixed(1)} px/s  (must be > 0)`);
+console.log(`min forward speed      : ${worstForward.toFixed(1)} m/s  (must be > 0)`);
+console.log(`min total speed        : ${worstDistStep.toFixed(1)} m/s  (must be > 0)`);
 console.log(`max heading jump/frame : ${(maxHeadingJump * 180 / Math.PI).toFixed(1)} deg`);
-console.log(`base speed             : ${TUNING.BASE_SPEED} px/s`);
+console.log(`base speed             : ${TUNING.BASE_SPEED} m/s`);
 
-const ok = worstForward > 0 && worstDistStep > 0;
+const ok = collisions > 0 && worstForward > 0 && worstDistStep > 0;
 console.log(ok ? '\nPASS - the player always keeps moving through a collision' : '\nFAIL - a collision stalled or reversed the car');
 process.exit(ok ? 0 : 1);

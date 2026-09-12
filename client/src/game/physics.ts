@@ -4,12 +4,12 @@
 // ===========================================================================
 export const TUNING = {
   // --- Speed -------------------------------------------------------------
-  /** Constant forward speed, px/sec. There is no throttle or brake by design. */
-  BASE_SPEED: 210,
+  /** Constant forward speed, m/sec. There is no throttle or brake by design. */
+  BASE_SPEED: 30,
 
   // --- Steering ----------------------------------------------------------
-  /** Turn rate at full lock, radians/sec. Higher = twitchier. */
-  MAX_TURN_RATE: 2.35,
+  /** Full lock covers the surveyed return loop (1.94m minimum radius). */
+  MAX_TURN_RATE: 34,
   /** Hand rotation, in degrees, that counts as full lock in either direction. */
   FULL_LOCK_DEG: 55,
   /** Steering response curve. 1 = linear; >1 softens the centre for fine control. */
@@ -24,8 +24,8 @@ export const TUNING = {
   ONE_EURO_D_CUTOFF: 1.0,
 
   // --- Car ---------------------------------------------------------------
-  CAR_LENGTH: 46,
-  CAR_WIDTH: 26,
+  CAR_LENGTH: 3.5,
+  CAR_WIDTH: 1.6,
 
   // --- Track -------------------------------------------------------------
   /** Overrides the width in the track JSON when set. Widen this first if the
@@ -37,9 +37,9 @@ export const TUNING = {
   COLLISION_RECOVERY_SEC: 2.0,
   /** One obstacle must not multi-hit. */
   COLLISION_GRACE_SEC: 0.5,
-  /** Impulse away from whatever was hit, px/sec. Decays fast - it is a bump,
+  /** Impulse away from whatever was hit, m/sec. Decays fast - it is a bump,
    *  not a physics ragdoll. */
-  KNOCKBACK_SPEED: 190,
+  KNOCKBACK_SPEED: 14,
   /** Exponential decay rate of the knockback impulse, per second. */
   KNOCKBACK_DECAY: 7.5,
   /** Heading deflection away from the obstacle, radians. */
@@ -49,20 +49,27 @@ export const TUNING = {
    *  penalty has already cut to COLLISION_SPEED_FACTOR. Measuring this against
    *  base speed instead would let a head-on hit reverse the car. */
   KNOCKBACK_MAX_BACKWARD: 0.45,
-  CONE_RADIUS: 24,
-  GATE_POST_RADIUS: 22,
-  GATE_DEFAULT_GAP: 150,
+  CONE_RADIUS: 0.65,
+  GATE_POST_RADIUS: 0.65,
+  GATE_DEFAULT_GAP: 7,
 
   // --- Off-track (continuous punishment for greed) ------------------------
   OFF_TRACK_SPEED_FACTOR: 0.6,
 
   // --- Oil (panic without punishing precision) ----------------------------
-  OIL_RADIUS: 52,
+  OIL_RADIUS: 2,
   OIL_DURATION_SEC: 1.5,
   /** Steering multiplier while oiled. Negative inverts, >1 amplifies. */
   OIL_STEER_MULT: -1.0,
 
   // --- Race --------------------------------------------------------------
+  LAPS: 3,
+  OBSTACLE_SPACING: 105,
+  OBSTACLE_JITTER: 40,
+  OBSTACLE_START_CLEARANCE: 70,
+  OBSTACLE_EDGE_MARGIN: 2,
+  NEAR_MISS_DISTANCE: 1.5,
+  KNOCKBACK_STOP_THRESHOLD: 0.05,
   COUNTDOWN_SEC: 3,
   /** Ghost path capture rate. Stored downsampled - see GHOST_STORE_HZ. */
   GHOST_RECORD_HZ: 30,
@@ -192,7 +199,7 @@ export function stepCar(
     const decay = Math.exp(-TUNING.KNOCKBACK_DECAY * dt);
     car.knockX *= decay;
     car.knockY *= decay;
-    if (Math.abs(car.knockX) + Math.abs(car.knockY) < 1) {
+    if (Math.abs(car.knockX) + Math.abs(car.knockY) < TUNING.KNOCKBACK_STOP_THRESHOLD) {
       car.knockX = 0;
       car.knockY = 0;
     }
@@ -209,6 +216,9 @@ export function stepCar(
   if (delta > geom.length / 2) delta -= geom.length;
   if (delta < -geom.length / 2) delta += geom.length;
   car.trackDistance += delta;
+  const lap = Math.max(0, Math.floor(car.trackDistance / geom.length));
+  if (lap > car.lapCount) car.hitObstacles.clear();
+  car.lapCount = lap;
 
   // --- Off-track ----------------------------------------------------------
   const halfTrack = geom.trackWidth / 2;
@@ -250,7 +260,7 @@ export function stepCar(
       }
     } else if (ob.type !== 'oil' && !car.hitObstacles.has(ob.index)) {
       // Near miss: passed close without contact, and only once per obstacle.
-      const nearR = hitR + 34;
+      const nearR = hitR + TUNING.NEAR_MISS_DISTANCE;
       if (distSq <= nearR * nearR) {
         car.hitObstacles.add(ob.index);
         events.push({ type: 'near_miss', obstacleIndex: ob.index, obstacleType: ob.type });
@@ -323,7 +333,7 @@ export function carToRacerState(
     y: car.y,
     heading: car.heading,
     trackDistance: car.trackDistance,
-    lapProgress: clamp(car.trackDistance / geom.length, 0, 1),
+    lapProgress: finished ? 1 : ((car.trackDistance % geom.length) + geom.length) % geom.length / geom.length,
     isLocalPlayer: true,
     source: 'local',
     finished,
