@@ -12,6 +12,8 @@ export interface Health {
   ai: { gemini: boolean; elevenlabs: boolean; geminiModel: string };
   ttsCharsUsed: number;
   ttsCharBudget: number;
+  rooms?: number;
+  lan?: string[];
 }
 
 let online = true;

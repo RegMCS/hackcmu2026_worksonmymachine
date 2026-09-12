@@ -1,10 +1,12 @@
 // Must come first: modules below read process.env at module scope.
 import { loadedEnvFiles } from './env.js';
 import express from 'express';
+import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createStore, type RunStore } from './store.js';
 import { generateCommentary, mintElevenLabsToken, synthesizeSpeech, aiStatus } from './ai.js';
+import { attachRelay, lanAddresses, roomCount } from './relay.js';
 import type { Run } from '../../shared/types';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -42,6 +44,8 @@ app.get('/api/health', asyncRoute(async (_req, res) => {
     ai: aiStatus(),
     ttsCharsUsed,
     ttsCharBudget: TTS_CHAR_BUDGET,
+    rooms: roomCount(),
+    lan: lanAddresses(),
   });
 }));
 
@@ -185,10 +189,14 @@ app.get(/^(?!\/api\/).*/, (_req, res) => {
 
 createStore().then((s) => {
   store = s;
-  app.listen(PORT, () => {
+  // One HTTP server, one port. The WebSocket relay mounts on the same listener
+  // so the deployment proxy does not have to know about a second process.
+  const server = createServer(app);
+  attachRelay(server);
+  server.listen(PORT, () => {
     const ai = aiStatus();
     console.log(`[ghostrace] env: ${loadedEnvFiles.join(', ') || 'none'}`);
-    console.log(`[ghostrace] listening on :${PORT}  store=${s.kind}  gemini=${ai.gemini}  elevenlabs=${ai.elevenlabs}`);
+    console.log(`[ghostrace] listening on :${PORT}  store=${s.kind}  gemini=${ai.gemini}  elevenlabs=${ai.elevenlabs}  ws=/ws`);
   });
 });
 

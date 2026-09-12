@@ -77,7 +77,7 @@ export class Race {
   readonly manager = new RacerManager();
   phase: RacePhase = 'idle';
   time = 0;
-  countdown = TUNING.COUNTDOWN_SEC;
+  countdown: number = TUNING.COUNTDOWN_SEC;
   car: CarState;
   ghosts: GhostPlayer[] = [];
   standings: Standing[] = [];
@@ -94,6 +94,11 @@ export class Race {
   savedRank: number | null = null;
   /** Resolves once the run has been persisted (or failed to be). */
   savePromise: Promise<void> = Promise.resolve();
+  /**
+   * Live opponents, supplied by the multiplayer session each frame. Empty when
+   * solo. Remotes are visual only — they never collide, same as ghosts.
+   */
+  remoteStates: RacerState[] = [];
 
   private recorder = new GhostRecorder(TUNING.GHOST_RECORD_HZ, TUNING.GHOST_STORE_HZ);
   private nextSector = 0;
@@ -269,6 +274,9 @@ export class Race {
       const s = g.sample(this.time);
       if (s) out.push(s);
     }
+    // Mixed grid: live players sit in the same array as ghosts. The HUD
+    // cannot tell them apart; if it ever needs to, invariant #3 is broken.
+    for (const r of this.remoteStates) out.push(r);
     return out;
   }
 
