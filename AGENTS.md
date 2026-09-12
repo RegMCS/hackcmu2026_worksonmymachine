@@ -25,10 +25,25 @@ Verify before pushing:
 ```bash
 npm run typecheck
 npm run build
-npx tsx scripts/diag/knockback.ts    # collisions must never stall the car
-npx tsx scripts/diag/curvature.ts    # corners must be takeable
-npx tsx scripts/diag/recorder.ts     # ghost sampling rate
+npm run diag             # the assertions below, in one go
+npm run check:secrets    # the repo is public; see "Secrets"
 ```
+
+`npm run diag` runs, in order:
+
+| Script | Asserts |
+|---|---|
+| `diag/knockback.ts` | collisions never stall or reverse the car |
+| `diag/curvature.ts` | every corner is takeable — exits 1 below a 2x radius ratio |
+| `diag/multilap.ts` | three-lap sequencing, ghost seeks, standings, events |
+| `diag/recorder.ts` | ghost sampling rate — **prints only, does not fail** |
+
+`diag/atlas-usage.ts` is excluded: it needs `MONGODB_URI` and reports storage
+against the M0 limit rather than asserting anything.
+
+GitHub Actions runs exactly this list on pull requests and on pushes to `main`
+(`.github/workflows/ci.yml`), so a missed local run is caught. Node version
+comes from `.nvmrc` in both places — keep the two in step.
 
 ## Invariants — do not break these
 
