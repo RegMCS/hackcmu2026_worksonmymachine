@@ -44,3 +44,18 @@ rejected. Local integration seeding uses port 18787 with file store
 `data/buggy-runs.json`; production needs its own reseed after integration.
 
 The optional fantasy course is deferred.
+
+# Shakedown Run
+
+The one course here that is not a real place. It is drawn by
+`node scripts/draw-course.mjs --id shakedown --name "Shakedown Run"`: a long arc
+with a sine meander on its normal, point to point rather than a loop, and with
+no obstacle seed, so no cones.
+
+It exists because the surveyed courses ask for 22% to 45% of full lock at their
+tightest corner, which is a lot from someone still learning to steer with their
+hands. This one peaks at 2% and carries nothing to hit. The `--amp` flag scales
+the meander and is the difficulty knob; the script prints the tightest radius it
+produced, and `scripts/diag/curvature.ts` prints it for every course side by
+side. Everything else about it is normal - `TUNING.TRACK_WIDTH` and
+`TUNING.LAPS` apply here as they do everywhere.

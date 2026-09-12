@@ -22,5 +22,11 @@
     "file": "/tracks/leventhal.json",
     "name": "Post Office Square",
     "blurb": "Tight city block, scaled up to size"
+  },
+  {
+    "id": "shakedown",
+    "file": "/tracks/shakedown.json",
+    "name": "Shakedown Run",
+    "blurb": "Point to point, wide sweepers, no cones - the gentle one"
   }
 ]

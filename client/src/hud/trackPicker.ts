@@ -12,7 +12,9 @@ import { densify, type Control } from '../../../shared/course';
 import type { CourseDef } from '../game/track';
 
 export interface CourseMeta {
-  sourceMetres: number;
+  /** Length of the real road the shape was scaled from. Absent on a drawn
+   *  course, which was never anywhere. */
+  sourceMetres?: number;
   lapSeconds: number;
   minRadius: number;
   pr: number;
@@ -197,7 +199,7 @@ export class TrackPicker {
       bits.push(def.closed === false
         ? `${def.meta.lapSeconds.toFixed(0)}s point to point`
         : `${def.meta.lapSeconds.toFixed(0)}s per lap`);
-      bits.push(`${def.meta.sourceMetres} m of real road`);
+      if (def.meta.sourceMetres !== undefined) bits.push(`${def.meta.sourceMetres} m of real road`);
     }
     if (def.sections?.length) bits.push(`${def.sections.length} sections`);
     this.statsEl.textContent = bits.join(' · ');
