@@ -31,8 +31,10 @@ export class Minimap {
     this.ox = pad + (this.width - pad * 2 - w * this.scale) / 2 - b.minX * this.scale;
     this.oy = pad + (this.height - pad * 2 - h * this.scale) / 2 - b.minY * this.scale;
 
+    // Include the end point on an open course; its finish is a real vertex.
     const STEP = this.geom.length / 160;
-    for (let s = 0; s < this.geom.length; s += STEP) {
+    const end = this.geom.closed ? this.geom.length : this.geom.length + STEP / 2;
+    for (let s = 0; s < end; s += STEP) {
       const p = this.geom.pointAt(s);
       this.outline.push(this.toMap(p.x, p.y));
     }
@@ -50,7 +52,7 @@ export class Minimap {
     ctx.beginPath();
     ctx.moveTo(this.outline[0].x, this.outline[0].y);
     for (let i = 1; i < this.outline.length; i++) ctx.lineTo(this.outline[i].x, this.outline[i].y);
-    ctx.closePath();
+    if (this.geom.closed) ctx.closePath();
     ctx.strokeStyle = 'rgba(0,0,0,0.75)';
     ctx.lineWidth = Math.max(6, this.geom.trackWidth * this.scale);
     ctx.lineJoin = 'round';
