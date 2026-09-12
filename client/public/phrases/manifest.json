@@ -1,0 +1,250 @@
+{
+  "race_start": [
+    {
+      "file": "race_start_1.mp3",
+      "text": "And they're off!"
+    },
+    {
+      "file": "race_start_2.mp3",
+      "text": "Green light, and we are racing!"
+    },
+    {
+      "file": "race_start_3.mp3",
+      "text": "Here we go, hands up!"
+    },
+    {
+      "file": "race_start_4.mp3",
+      "text": "The lights go out!"
+    }
+  ],
+  "collision": [
+    {
+      "file": "collision_1.mp3",
+      "text": "Contact!"
+    },
+    {
+      "file": "collision_2.mp3",
+      "text": "Oh, that's a hit!"
+    },
+    {
+      "file": "collision_3.mp3",
+      "text": "Straight into the cones!"
+    },
+    {
+      "file": "collision_4.mp3",
+      "text": "That will cost him!"
+    },
+    {
+      "file": "collision_5.mp3",
+      "text": "Clumsy, very clumsy!"
+    }
+  ],
+  "near_miss": [
+    {
+      "file": "near_miss_1.mp3",
+      "text": "Inches away!"
+    },
+    {
+      "file": "near_miss_2.mp3",
+      "text": "So close!"
+    },
+    {
+      "file": "near_miss_3.mp3",
+      "text": "Threading the needle!"
+    },
+    {
+      "file": "near_miss_4.mp3",
+      "text": "Millimetre perfect!"
+    }
+  ],
+  "oil": [
+    {
+      "file": "oil_1.mp3",
+      "text": "Oil on the surface!"
+    },
+    {
+      "file": "oil_2.mp3",
+      "text": "He's sliding!"
+    },
+    {
+      "file": "oil_3.mp3",
+      "text": "No grip at all!"
+    }
+  ],
+  "off_track_enter": [
+    {
+      "file": "off_track_enter_1.mp3",
+      "text": "Off the track!"
+    },
+    {
+      "file": "off_track_enter_2.mp3",
+      "text": "Wide, far too wide!"
+    },
+    {
+      "file": "off_track_enter_3.mp3",
+      "text": "He's in the dirt!"
+    }
+  ],
+  "off_track_exit": [
+    {
+      "file": "off_track_exit_1.mp3",
+      "text": "Back on the black stuff!"
+    },
+    {
+      "file": "off_track_exit_2.mp3",
+      "text": "Recovered nicely!"
+    }
+  ],
+  "overtake_ghost": [
+    {
+      "file": "overtake_ghost_1.mp3",
+      "text": "That's a pass!"
+    },
+    {
+      "file": "overtake_ghost_2.mp3",
+      "text": "Up a place!"
+    },
+    {
+      "file": "overtake_ghost_3.mp3",
+      "text": "Around the outside!"
+    },
+    {
+      "file": "overtake_ghost_4.mp3",
+      "text": "Brilliant overtake!"
+    }
+  ],
+  "position_gained": [
+    {
+      "file": "position_gained_1.mp3",
+      "text": "Moving up the order!"
+    },
+    {
+      "file": "position_gained_2.mp3",
+      "text": "Another one down!"
+    },
+    {
+      "file": "position_gained_3.mp3",
+      "text": "Climbing fast!"
+    }
+  ],
+  "position_lost": [
+    {
+      "file": "position_lost_1.mp3",
+      "text": "He drops a place!"
+    },
+    {
+      "file": "position_lost_2.mp3",
+      "text": "Losing ground!"
+    },
+    {
+      "file": "position_lost_3.mp3",
+      "text": "Passed on the inside!"
+    }
+  ],
+  "took_lead": [
+    {
+      "file": "took_lead_1.mp3",
+      "text": "He takes the lead!"
+    },
+    {
+      "file": "took_lead_2.mp3",
+      "text": "Into first place!"
+    },
+    {
+      "file": "took_lead_3.mp3",
+      "text": "The lead changes hands!"
+    }
+  ],
+  "close_battle": [
+    {
+      "file": "close_battle_1.mp3",
+      "text": "Wheel to wheel!"
+    },
+    {
+      "file": "close_battle_2.mp3",
+      "text": "This is nail-biting!"
+    },
+    {
+      "file": "close_battle_3.mp3",
+      "text": "Nothing between them!"
+    },
+    {
+      "file": "close_battle_4.mp3",
+      "text": "Right on his tail!"
+    }
+  ],
+  "sector_time": [
+    {
+      "file": "sector_time_1.mp3",
+      "text": "Quick through that sector!"
+    },
+    {
+      "file": "sector_time_2.mp3",
+      "text": "Strong split there!"
+    },
+    {
+      "file": "sector_time_3.mp3",
+      "text": "Time coming back to him!"
+    }
+  ],
+  "final_lap": [
+    {
+      "file": "final_lap_1.mp3",
+      "text": "Final sector!"
+    },
+    {
+      "file": "final_lap_2.mp3",
+      "text": "Last push to the line!"
+    },
+    {
+      "file": "final_lap_3.mp3",
+      "text": "Here comes the run home!"
+    }
+  ],
+  "personal_best": [
+    {
+      "file": "personal_best_1.mp3",
+      "text": "A new personal best!"
+    },
+    {
+      "file": "personal_best_2.mp3",
+      "text": "His quickest yet!"
+    },
+    {
+      "file": "personal_best_3.mp3",
+      "text": "That's a new benchmark!"
+    }
+  ],
+  "race_finish": [
+    {
+      "file": "race_finish_1.mp3",
+      "text": "Across the line!"
+    },
+    {
+      "file": "race_finish_2.mp3",
+      "text": "And that's the chequered flag!"
+    },
+    {
+      "file": "race_finish_3.mp3",
+      "text": "He takes the flag!"
+    },
+    {
+      "file": "race_finish_4.mp3",
+      "text": "Race complete!"
+    }
+  ],
+  "rival_matched": [
+    {
+      "file": "rival_matched_1.mp3",
+      "text": "This is going down to the wire!"
+    },
+    {
+      "file": "rival_matched_2.mp3",
+      "text": "A real fight on our hands!"
+    },
+    {
+      "file": "rival_matched_3.mp3",
+      "text": "These two are evenly matched!"
+    }
+  ]
+}

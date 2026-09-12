@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>GhostRace - hand-steered racing</title>
+<link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <!-- Layer 1: the player's live video IS the background of the entire screen. -->
+  <video id="video" playsinline muted autoplay></video>
+  <!-- Layer 2: a flat scrim instead of a CSS filter - same readability win, no
+       question about whether the filter is GPU-accelerated. -->
+  <div id="scrim"></div>
+  <!-- Layer 3: track, obstacles, ghosts. -->
+  <canvas id="game"></canvas>
+  <!-- Layer 4: the wheel anchored to the player's hands, plus screen effects. -->
+  <canvas id="overlay"></canvas>
+
+  <!-- Layer 5: HUD as DOM. -->
+  <div id="hud" hidden>
+    <div id="progress-wrap">
+      <div id="progress-track"><div id="progress-markers"></div></div>
+    </div>
+
+    <aside id="panel-left" class="panel">
+      <h2>Position</h2>
+      <ol id="standings"></ol>
+    </aside>
+
+    <aside id="panel-right">
+      <div class="panel" id="stats">
+        <div class="stat"><span>Time</span><b id="stat-time">0:00.00</b></div>
+        <div class="stat"><span>Position</span><b id="stat-pos">1 / 1</b></div>
+        <div class="stat"><span>Contact</span><b id="stat-hits">0</b></div>
+        <div class="stat"><span>vs PB</span><b id="stat-pb">--</b></div>
+      </div>
+      <div class="panel" id="minimap-panel">
+        <canvas id="minimap" width="200" height="150"></canvas>
+      </div>
+    </aside>
+
+    <div id="warn-hands" class="banner" hidden>Show both hands</div>
+    <div id="warn-offtrack" class="banner danger" hidden>OFF TRACK</div>
+    <div id="countdown" hidden></div>
+    <div id="commentary-line" hidden>
+      <span class="commentary-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+          <path d="M3 9v6h4l5 4V5L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3v2a7 7 0 0 1 0 14v2a9 9 0 0 0 0-18z"/>
+        </svg>
+      </span>
+      <span class="commentary-text"></span>
+    </div>
+  </div>
+
+  <!-- Screens ------------------------------------------------------------- -->
+  <div id="screen-permission" class="screen">
+    <div class="card">
+      <h1>GhostRace</h1>
+      <p class="lede">Hold your hands up like a steering wheel. Your webcam does the rest.</p>
+      <p class="muted">This game needs your camera. Nothing is uploaded - tracking runs entirely in your browser.</p>
+      <button id="btn-enable" class="primary">Enable camera</button>
+      <button id="btn-keyboard" class="ghost">Play with arrow keys instead</button>
+      <p id="permission-error" class="error" hidden></p>
+    </div>
+  </div>
+
+  <div id="screen-name" class="screen" hidden>
+    <div class="card">
+      <h1>Driver name</h1>
+      <input id="input-name" maxlength="16" placeholder="Your name" autocomplete="off" />
+
+      <div class="picker">
+        <h3>Your car</h3>
+        <div class="car-preview"><img id="car-preview-img" alt="Selected car" /></div>
+        <div class="swatches" id="car-colors"></div>
+        <div class="shapes" id="car-shapes"></div>
+      </div>
+
+      <button id="btn-name" class="primary">Continue</button>
+    </div>
+  </div>
+
+  <div id="screen-calibrate" class="screen transparent" hidden>
+    <div class="card calib">
+      <h1 id="calib-message">Hold your hands up like a steering wheel</h1>
+      <div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="ring-bg"/><circle id="calib-ring" cx="60" cy="60" r="52" class="ring-fg"/></svg></div>
+      <p class="muted" id="calib-sub">Both hands must be visible</p>
+      <button id="btn-skip-calib" class="ghost">Use keyboard instead</button>
+    </div>
+  </div>
+
+  <div id="screen-results" class="screen" hidden>
+    <div class="card wide">
+      <h1>Finish</h1>
+      <div class="result-grid">
+        <div><span>Your time</span><b id="res-time">--</b></div>
+        <div><span>Position</span><b id="res-rank">--</b></div>
+        <div><span>Contact</span><b id="res-hits">--</b></div>
+        <div><span>Off track</span><b id="res-off">--</b></div>
+      </div>
+      <p id="res-rival" class="rival"></p>
+      <div id="res-sectors" class="sectors"></div>
+      <p id="res-style" class="muted"></p>
+      <p id="res-like" class="muted"></p>
+      <h2>Leaderboard</h2>
+      <ol id="res-leaderboard"></ol>
+      <div class="row">
+        <button id="btn-again" class="primary">Race again <kbd>R</kbd></button>
+        <button id="btn-qr" class="ghost">Share</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-qr" class="screen" hidden>
+    <div class="card">
+      <h1>Scan to play</h1>
+      <div id="qr-code"></div>
+      <p class="muted" id="qr-url"></p>
+      <button id="btn-qr-close" class="ghost">Back</button>
+    </div>
+  </div>
+
+  <pre id="debug" hidden></pre>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

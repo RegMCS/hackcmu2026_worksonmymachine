@@ -1,0 +1,203 @@
+{
+  "id": "circuit-01",
+  "name": "Hackathon Circuit",
+  "trackWidth": 300,
+  "sectorCount": 5,
+  "samplesPerSegment": 14,
+  "_comment": "centerline is HAND-AUTHORED control points, smoothed by a closed Catmull-Rom spline at load. Edit these to reshape the track. Obstacles are placed in track-relative coordinates: s = metres along the centerline from start/finish, d = lateral offset (+ is right of travel). Run `npm run track:info` after editing to print the new length and sector boundaries.",
+  "centerline": [
+    [
+      1600,
+      2095
+    ],
+    [
+      2300,
+      2120
+    ],
+    [
+      2950,
+      2060
+    ],
+    [
+      3420,
+      1880
+    ],
+    [
+      3710,
+      1540
+    ],
+    [
+      3780,
+      1160
+    ],
+    [
+      3570,
+      820
+    ],
+    [
+      3150,
+      670
+    ],
+    [
+      2880,
+      650
+    ],
+    [
+      2450,
+      745
+    ],
+    [
+      2020,
+      645
+    ],
+    [
+      1600,
+      730
+    ],
+    [
+      1450,
+      790
+    ],
+    [
+      1080,
+      1000
+    ],
+    [
+      866,
+      1300
+    ],
+    [
+      830,
+      1640
+    ],
+    [
+      1000,
+      1920
+    ],
+    [
+      1250,
+      2040
+    ]
+  ],
+  "obstacles": [
+    {
+      "type": "cone",
+      "s": 420,
+      "d": -60
+    },
+    {
+      "type": "cone",
+      "s": 485,
+      "d": 10
+    },
+    {
+      "type": "cone",
+      "s": 550,
+      "d": 80
+    },
+    {
+      "type": "gate",
+      "s": 1000,
+      "d": 0,
+      "gap": 160
+    },
+    {
+      "type": "cone",
+      "s": 1300,
+      "d": -95
+    },
+    {
+      "type": "oil",
+      "s": 1700,
+      "d": 40
+    },
+    {
+      "type": "cone",
+      "s": 2100,
+      "d": -70
+    },
+    {
+      "type": "cone",
+      "s": 2165,
+      "d": -10
+    },
+    {
+      "type": "gate",
+      "s": 2600,
+      "d": 25,
+      "gap": 150
+    },
+    {
+      "type": "cone",
+      "s": 3350,
+      "d": 65
+    },
+    {
+      "type": "cone",
+      "s": 3415,
+      "d": 118
+    },
+    {
+      "type": "oil",
+      "s": 3750,
+      "d": -50
+    },
+    {
+      "type": "gate",
+      "s": 4100,
+      "d": -15,
+      "gap": 165
+    },
+    {
+      "type": "cone",
+      "s": 4800,
+      "d": -80
+    },
+    {
+      "type": "cone",
+      "s": 4865,
+      "d": 0
+    },
+    {
+      "type": "oil",
+      "s": 5150,
+      "d": 25
+    },
+    {
+      "type": "cone",
+      "s": 5550,
+      "d": 85
+    },
+    {
+      "type": "cone",
+      "s": 5615,
+      "d": 25
+    },
+    {
+      "type": "gate",
+      "s": 6100,
+      "d": 0,
+      "gap": 170
+    },
+    {
+      "type": "cone",
+      "s": 6600,
+      "d": -100
+    },
+    {
+      "type": "oil",
+      "s": 7000,
+      "d": 0
+    },
+    {
+      "type": "cone",
+      "s": 7200,
+      "d": 60
+    },
+    {
+      "type": "cone",
+      "s": 7265,
+      "d": 115
+    }
+  ]
+}

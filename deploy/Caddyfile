@@ -1,0 +1,28 @@
+# GhostRace reverse proxy for Vultr.
+#
+# Caddy is used specifically because it obtains and renews Let's Encrypt
+# certificates automatically from these few lines. getUserMedia will not run
+# without valid HTTPS, and a self-signed certificate fails outright on iOS
+# Safari - so TLS is a hard dependency of the game working at all, not a
+# nice-to-have to sort out the night before.
+#
+# Replace ghostrace.example.com with your real domain, then:
+#   sudo caddy fmt --overwrite /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+
+ghostrace.example.com {
+	encode zstd gzip
+
+	# The MediaPipe wasm and model are ~18MB combined and compress well. On
+	# venue wifi, with one download per device, this matters.
+	@static path /mediapipe/* /models/* /cars/* /phrases/* /assets/*
+	header @static Cache-Control "public, max-age=604800, immutable"
+
+	# Everything, API included, is served same-origin, so there is no CORS.
+	reverse_proxy localhost:8787
+
+	log {
+		output file /var/log/caddy/ghostrace.log
+		format console
+	}
+}
