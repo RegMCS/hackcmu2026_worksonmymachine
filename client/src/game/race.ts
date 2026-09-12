@@ -5,7 +5,6 @@ import { GhostPlayer, GhostRecorder } from './ghost';
 import { RacerManager, type Standing } from './racers';
 import { EventBus } from './events';
 import { api } from '../net/api';
-import { clamp } from '../util/math';
 
 export type RacePhase = 'idle' | 'calibrating' | 'countdown' | 'racing' | 'finished';
 
@@ -194,19 +193,21 @@ export class Race {
 
     // --- Sectors ----------------------------------------------------------
     while (
-      this.nextSector < this.geom.sectorBoundaries.length &&
-      this.car.trackDistance >= this.geom.sectorBoundaries[this.nextSector]
+      this.nextSector < this.geom.sectorBoundaries.length * TUNING.LAPS &&
+      this.car.trackDistance >= this.geom.sectorEndAt(this.nextSector)
     ) {
       const idx = this.nextSector;
       const prev = this.sectorTimes.reduce((a, b) => a + b, 0);
       const split = this.time - prev;
       this.sectorTimes.push(split);
       this.nextSector++;
-      this.bus.emit('sector_time', this.time, { sector: idx + 1, split: +split.toFixed(2) });
+      this.bus.emit('sector_time', this.time, { sector: idx % this.geom.sectorBoundaries.length + 1, lap: Math.floor(idx / this.geom.sectorBoundaries.length) + 1, section: this.geom.sectionNameAt(this.geom.sectorEndAt(idx) - 0.001), split: +split.toFixed(2) });
 
       if (idx === 0 && !this.matchmakeDone) void this.matchmake(split);
-      if (idx === this.geom.sectorBoundaries.length - 2) {
-        this.bus.emit('final_lap', this.time);
+      if ((idx + 1) % this.geom.sectorBoundaries.length === 0) {
+        const lap = (idx + 1) / this.geom.sectorBoundaries.length;
+        this.bus.emit('lap_complete', this.time, { lap, laps: TUNING.LAPS });
+        if (lap === TUNING.LAPS - 1) this.bus.emit('final_lap', this.time);
       }
     }
 
@@ -222,7 +223,7 @@ export class Race {
     this.detectRaceEvents();
 
     // --- Finish -----------------------------------------------------------
-    if (this.car.trackDistance >= this.geom.length) {
+    if (this.car.trackDistance >= this.geom.length * TUNING.LAPS) {
       this.finish();
     }
   }
@@ -261,11 +262,12 @@ export class Race {
         x: this.car.x,
         y: this.car.y,
         heading: this.car.heading,
-        trackDistance: this.car.trackDistance,
-        lapProgress: clamp(this.car.trackDistance / this.geom.length, 0, 1),
+        trackDistance: this.phase === 'finished' ? this.geom.length * TUNING.LAPS : this.car.trackDistance,
+        lapProgress: this.phase === 'finished' ? 1 : ((this.car.trackDistance % this.geom.length) + this.geom.length) % this.geom.length / this.geom.length,
         isLocalPlayer: true,
         source: 'local',
         finished: this.phase === 'finished',
+        finishTime: this.phase === 'finished' ? this.time : undefined,
         colorIndex: this.opts.colorIndex,
         carShape: this.opts.carShape,
       },
@@ -318,7 +320,7 @@ export class Race {
     this.matchmakeDone = true;
     const projected = this.personalBest
       ? this.personalBest.totalTime
-      : sectorOneSplit * this.geom.def.sectorCount;
+      : sectorOneSplit * (this.geom.length * TUNING.LAPS / this.geom.sectorBoundaries[0]);
 
     const runs = await api.matchmake(this.opts.trackId, projected, this.opts.playerName, 4);
     if (!runs.length) return;
@@ -346,7 +348,7 @@ export class Race {
   private finish(): void {
     this.phase = 'finished';
     const total = this.time;
-    if (this.sectorTimes.length < this.geom.def.sectorCount) {
+    if (this.sectorTimes.length < this.geom.sectorBoundaries.length * TUNING.LAPS) {
       const prev = this.sectorTimes.reduce((a, b) => a + b, 0);
       this.sectorTimes.push(total - prev);
     }
@@ -377,6 +379,14 @@ export class Race {
       this.savedRank = res.rank;
     }
   }
+
+  get lap(): number {
+    return Math.min(TUNING.LAPS, this.car.lapCount + 1);
+  }
+
+  get laps(): number { return TUNING.LAPS; }
+
+  get sectionName(): string { return this.geom.sectionNameAt(this.car.trackDistance); }
 
   get oiled(): boolean {
     return this.time < this.car.oilUntil;

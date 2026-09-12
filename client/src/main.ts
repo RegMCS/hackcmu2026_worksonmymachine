@@ -5,8 +5,8 @@ import { Race } from './game/race';
 import { TUNING } from './game/physics';
 import { HandTracker, startCamera, type TrackingFrame } from './tracking/hands';
 import { Calibrator, SteeringController } from './tracking/steering';
-import { WindshieldCamera } from './render/projection';
 import { SceneRenderer } from './render/scene';
+import { demoHills } from './render/elevation';
 import { OverlayRenderer } from './render/overlay';
 import { Minimap } from './render/minimap';
 import {
@@ -18,6 +18,7 @@ import {
 } from './render/carSprites';
 import { Hud, renderLeaderboard, escapeHtml } from './hud/hud';
 import { describeStyle, findRivalRun, nearestNeighbour, renderSectorBars, rivalLine } from './hud/results';
+import { buildPersonaPicker } from './hud/personaPicker';
 import { Commentator } from './audio/commentary';
 import { Sfx } from './audio/sfx';
 import { unlockAudio } from './audio/context';
@@ -50,11 +51,10 @@ const steering = new SteeringController();
 const calibrator = new Calibrator();
 const commentator = new Commentator();
 const sfx = new Sfx();
-const camera = new WindshieldCamera();
 
 let tracker: HandTracker | null = null;
 let race: Race | null = null;
-let scene: SceneRenderer;
+let scene: SceneRenderer | null = null;
 let overlay: OverlayRenderer;
 let minimap: Minimap;
 let leaderboard: RunSummary[] = [];
@@ -74,13 +74,15 @@ let carColor = Number(localStorage.getItem('ghostrace.carColor') ?? '0');
 let carShape = Number(localStorage.getItem('ghostrace.carShape') ?? '1');
 let spritesLoaded = 0;
 let sfxOn = localStorage.getItem('ghostrace.sfx') !== 'off';
+/** Webcam as a corner panel (default) or as the full-screen background. Toggle with V. */
+let videoPanel = localStorage.getItem('ghostrace.videoPanel') !== 'off';
 let lastCountdownPip = -1;
 
 const mp = new MultiplayerSession();
 const lobby = new LobbyView({
   onJoin: (room) => { void joinRoom(room); },
   onSolo: () => { mp.leave(); proceedToRace(); },
-  onStart: () => mp.requestStart(TRACK_ID),
+  onStart: () => mp.requestStart(race?.geom.def.id ?? 'buggy-3lap-v1'),
   onReady: (ready) => mp.setReady(ready),
   onLeave: () => { mp.leave(); lobby.apply(mp.snapshot()); lobby.setHint(''); },
 });
@@ -92,34 +94,64 @@ mp.onChange((snap) => {
 });
 mp.onRaceStart((ev) => proceedToRace(ev.at));
 
+function applyVideoLayout(): void {
+  document.body.classList.toggle('video-panel', videoPanel);
+  scene?.setHandsFade(!videoPanel);
+}
+
+/**
+ * Draws the wheel over the video wherever the video is. In panel mode the
+ * overlay is translated and clipped to the panel's rectangle, and drawWheel's
+ * cover-fit mapping then matches the panel's own object-fit: cover crop.
+ */
+function drawWheelOverVideo(input: Parameters<OverlayRenderer['drawWheel']>[0], w: number, h: number): void {
+  if (!videoPanel) {
+    overlay.drawWheel(input, w, h);
+    return;
+  }
+  const r = video.getBoundingClientRect();
+  const ctx = overlayCanvas.getContext('2d')!;
+  ctx.save();
+  ctx.translate(r.left, r.top);
+  ctx.beginPath();
+  ctx.rect(0, 0, r.width, r.height);
+  ctx.clip();
+  overlay.drawWheel(input, r.width, r.height);
+  ctx.restore();
+}
+
 // --- Canvas sizing ---------------------------------------------------------
 function resize(): void {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = window.innerWidth;
   const h = window.innerHeight;
-  for (const c of [gameCanvas, overlayCanvas]) {
-    c.width = Math.round(w * dpr);
-    c.height = Math.round(h * dpr);
-    const ctx = c.getContext('2d')!;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-  camera.resize(w, h);
+  overlayCanvas.width = Math.round(w * dpr);
+  overlayCanvas.height = Math.round(h * dpr);
+  overlayCanvas.getContext('2d')!.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // The game canvas is WebGL now; the renderer owns its backing size.
+  scene?.resize(w, h, dpr);
 }
 window.addEventListener('resize', resize);
 
 // --- Boot ------------------------------------------------------------------
 async function boot(): Promise<void> {
   const geom = await loadTrack(`/tracks/${TRACK_ID}.json`);
-  scene = new SceneRenderer(gameCanvas.getContext('2d')!);
+  scene = new SceneRenderer(gameCanvas);
+  scene.setTrack(geom, (s) => geom.elevationAt(s));
+  applyVideoLayout();
   overlay = new OverlayRenderer(overlayCanvas.getContext('2d')!);
   minimap = new Minimap(minimapCanvas.getContext('2d')!, geom, minimapCanvas.width, minimapCanvas.height);
   resize();
 
   spritesLoaded = await preloadCarSprites();
   buildCarPicker();
+  buildPersonaPicker(({ persona, voiceId }) => {
+    commentator.persona = persona;
+    commentator.voiceId = voiceId;
+  });
 
   race = new Race({
-    trackId: TRACK_ID,
+    trackId: geom.def.id,
     playerName: playerName || 'Anon',
     geom,
     colorIndex: carColor,
@@ -181,6 +213,12 @@ async function boot(): Promise<void> {
       clearHands() {
         simulatedFrame = null;
       },
+      /** Exaggerated synthetic hills in metres, for eyeballing the elevation path; 0 restores the surveyed data. */
+      hills(amplitude = 8) {
+        if (!race || !scene) return;
+        const geom = race.geom;
+        scene.setTrack(geom, amplitude ? demoHills(geom.length, amplitude) : (s) => geom.elevationAt(s));
+      },
       /** Jump the car to a point on the track, for testing without driving a lap. */
       seek(distance: number) {
         if (!race) return;
@@ -204,7 +242,7 @@ function commentaryContext() {
     playerName: race?.playerName ?? 'Driver',
     position: me?.position ?? 1,
     fieldSize: race?.standings.length || 1,
-    lapProgress: race ? race.car.trackDistance / race.geom.length : 0,
+    lapProgress: race ? (race.car.trackDistance % race.geom.length) / race.geom.length : 0,
     rivalName: race?.rivalName ?? undefined,
     gap: me?.gapAhead ?? undefined,
     collisions: race?.car.collisionCount ?? 0,
@@ -212,7 +250,7 @@ function commentaryContext() {
 }
 
 async function refreshLeaderboard(): Promise<void> {
-  leaderboard = await api.leaderboard(TRACK_ID, 25);
+  leaderboard = await api.leaderboard(race?.geom.def.id ?? 'buggy-3lap-v1', 25);
 }
 
 // --- Setup flow ------------------------------------------------------------
@@ -427,8 +465,8 @@ function loop(now: number): void {
         y: race.car.y,
         heading: race.car.heading,
         trackDistance: race.car.trackDistance,
-        lapProgress: race.car.trackDistance / race.geom.length,
-        lap: 0,
+        lapProgress: ((race.car.trackDistance % race.geom.length) + race.geom.length) % race.geom.length / race.geom.length,
+        lap: race.lap,
       });
     }
     renderRace(dt);
@@ -453,7 +491,7 @@ function updateCalibration(frame: TrackingFrame | null, dt: number): void {
   const h = window.innerHeight;
   overlay.clear(w, h);
   wheelOpacity += (((frame?.handCount ?? 0) >= 2 ? 1 : 0) - wheelOpacity) * Math.min(1, dt * 8);
-  overlay.drawWheel(
+  drawWheelOverVideo(
     { left: frame?.left ?? null, right: frame?.right ?? null, opacity: wheelOpacity, videoW: video.videoWidth, videoH: video.videoHeight, oiled: false },
     w, h,
   );
@@ -465,24 +503,19 @@ function updateCalibration(frame: TrackingFrame | null, dt: number): void {
 }
 
 function renderRace(dt: number): void {
-  if (!race) return;
+  if (!race || !scene) return;
   const w = window.innerWidth;
   const h = window.innerHeight;
   const frame = simulatedFrame ?? tracker?.lastFrame ?? null;
 
-  // Screen shake decays toward zero and is applied at projection time.
-  camera.shakeX = (Math.random() - 0.5) * race.shake;
-  camera.shakeY = (Math.random() - 0.5) * race.shake;
-  camera.setView(race.car.x, race.car.y, race.car.heading);
-
   const racers = race.buildRacerStates();
   scene.render({
     geom: race.geom,
-    camera,
     racers,
     localTrackDistance: race.car.trackDistance,
     offTrack: race.car.offTrack,
     oiled: race.oiled,
+    shake: race.shake,
   });
 
   overlay.clear(w, h);
@@ -493,7 +526,7 @@ function renderRace(dt: number): void {
   const target = mode === 'hands' && steering.handsVisible ? 1 : 0;
   wheelOpacity += (target - wheelOpacity) * Math.min(1, dt * 6);
   if (mode === 'hands') {
-    overlay.drawWheel(
+    drawWheelOverVideo(
       { left: frame?.left ?? null, right: frame?.right ?? null, opacity: wheelOpacity, videoW: video.videoWidth, videoH: video.videoHeight, oiled: race.oiled },
       w, h,
     );
@@ -619,6 +652,11 @@ window.addEventListener('keydown', (e) => {
   }
   // One-click full reset. Non-negotiable for repeated demos.
   if ((e.key === 'r' || e.key === 'R') && appPhase !== 'setup') restart();
+  if (e.key === 'v' || e.key === 'V') {
+    videoPanel = !videoPanel;
+    localStorage.setItem('ghostrace.videoPanel', videoPanel ? 'on' : 'off');
+    applyVideoLayout();
+  }
   if (e.key === 'm' || e.key === 'M') {
     sfxOn = !sfxOn;
     sfx.setEnabled(sfxOn);
@@ -639,8 +677,9 @@ function updateDebug(): void {
     `latency    ${l && l.lastMs ? l.lastMs.toFixed(1) + ' ms' : 'n/a (keyboard)'}  p50 ${l && l.p50 ? l.p50.toFixed(1) : '--'}  p95 ${l && l.p95 ? l.p95.toFixed(1) : '--'}`,
     `  source   ${l?.label ?? 'n/a - no camera'}`,
     `inference  ${tracker ? tracker.inferenceMs.toFixed(1) : '--'} ms`,
+    `render     ${scene ? `${scene.stats.renderMs.toFixed(1)} ms submit, ${scene.stats.calls} draw calls, ${scene.stats.triangles} tris` : '--'}`,
     `steer      raw ${steering.raw.toFixed(3)}  smooth ${steering.value.toFixed(3)}`,
-    `mode       ${mode}${steering.calibrated ? ' (calibrated)' : ''}`,
+    `mode       ${mode}${steering.calibrated ? ' (calibrated)' : ''}  video ${videoPanel ? 'panel' : 'fullscreen'} (V)`,
     race ? `race       ${race.phase} t=${race.time.toFixed(2)} s=${race.car.trackDistance.toFixed(0)}/${race.geom.length.toFixed(0)}` : '',
     race ? `penalty    speed x${(race.car.collisionPenalty * (race.car.offTrack ? TUNING.OFF_TRACK_SPEED_FACTOR : 1)).toFixed(2)}${race.oiled ? ' OILED' : ''}` : '',
     `audio      sfx ${sfxOn ? 'on' : 'off'} (M)  ${commentator.phraseCount} phrases`,

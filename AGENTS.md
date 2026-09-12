@@ -25,10 +25,25 @@ Verify before pushing:
 ```bash
 npm run typecheck
 npm run build
-npx tsx scripts/diag/knockback.ts    # collisions must never stall the car
-npx tsx scripts/diag/curvature.ts    # corners must be takeable
-npx tsx scripts/diag/recorder.ts     # ghost sampling rate
+npm run diag             # the assertions below, in one go
+npm run check:secrets    # the repo is public; see "Secrets"
 ```
+
+`npm run diag` runs, in order:
+
+| Script | Asserts |
+|---|---|
+| `diag/knockback.ts` | collisions never stall or reverse the car |
+| `diag/curvature.ts` | every corner is takeable — exits 1 below a 2x radius ratio |
+| `diag/multilap.ts` | three-lap sequencing, ghost seeks, standings, events |
+| `diag/recorder.ts` | ghost sampling rate — **prints only, does not fail** |
+
+`diag/atlas-usage.ts` is excluded: it needs `MONGODB_URI` and reports storage
+against the M0 limit rather than asserting anything.
+
+GitHub Actions runs exactly this list on pull requests and on pushes to `main`
+(`.github/workflows/ci.yml`), so a missed local run is caught. Node version
+comes from `.nvmrc` in both places — keep the two in step.
 
 ## Invariants — do not break these
 
@@ -80,6 +95,11 @@ scripts/diag/  assertions about physics and geometry
   whole output budget. `minimal` is what we ship.
 - **The `hidden` attribute loses to an explicit `display`.** Any element with
   `display:` in CSS needs a matching `[hidden] { display: none }` rule.
+- **`git reset --hard FETCH_HEAD` does not rename the branch.** It moves the
+  checked-out branch onto the fetched commit, so a box provisioned from one
+  branch keeps that name while carrying another branch's code. The live box sat
+  on a branch called `ghostrace` for exactly this reason. `main` is the deployed
+  branch; verify with `git branch -vv` rather than trusting the deploy command.
 - **`sshd` is first-match-wins**, so a hardening drop-in must sort *before*
   `50-cloud-init.conf`, not after.
 - **Caddy's systemd unit sandboxes the filesystem** and cannot write
@@ -90,6 +110,9 @@ scripts/diag/  assertions about physics and geometry
 - **ElevenLabs free tier is ~10,000 credits/month** and Flash bills 0.5 credits
   per character. The pre-generated phrase bank is the primary commentary path;
   live generation is capped per race. Do not make live generation the default.
+  The commentator persona therefore applies to live lines only - regenerating the
+  54-phrase bank per persona would cost about a thousand credits each. `hype` is
+  the default because the bank was synthesised in that register.
 - **Node ESM needs explicit `.js` extensions** in relative imports. `tsx` papers
   over this in dev and it only fails in the production build.
 

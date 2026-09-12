@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createStore, type RunStore } from './store.js';
-import { generateCommentary, mintElevenLabsToken, synthesizeSpeech, aiStatus } from './ai.js';
+import { generateCommentary, mintElevenLabsToken, synthesizeSpeech, aiStatus, listVoices } from './ai.js';
 import { attachRelay, lanAddresses, roomCount } from './relay.js';
 import type { Run } from '../../shared/types';
 
@@ -136,6 +136,16 @@ app.post('/api/commentary', asyncRoute(async (req, res) => {
   }
 }));
 
+app.get('/api/voices', asyncRoute(async (_req, res) => {
+  try {
+    res.json(await listVoices());
+  } catch (err) {
+    // An empty list is a working picker with one option, not a broken screen.
+    console.warn('[voices]', (err as Error).message);
+    res.json([]);
+  }
+}));
+
 app.post('/api/tts-token', asyncRoute(async (_req, res) => {
   try {
     res.json((await mintElevenLabsToken()) ?? { token: null });
@@ -156,7 +166,10 @@ app.post('/api/tts', asyncRoute(async (req, res) => {
     return;
   }
   try {
-    const audio = await synthesizeSpeech(text);
+    const audio = await synthesizeSpeech(text, {
+      persona: typeof req.body?.persona === 'string' ? req.body.persona : undefined,
+      voiceId: typeof req.body?.voiceId === 'string' ? req.body.voiceId : undefined,
+    });
     if (!audio) {
       res.status(503).json({ error: 'tts not configured' });
       return;

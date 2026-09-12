@@ -473,3 +473,79 @@ input {
   background: rgba(255,255,255,0.05); font-variant-numeric: tabular-nums;
 }
 .qr-card ol li.me { background: rgba(56,189,248,0.2); border: 1px solid rgba(56,189,248,0.45); }
+
+/* --- Commentator picker -------------------------------------------------- */
+/* Same button language as the car shapes, but two-line: the blurb is what makes
+   the choice meaningful to someone who has never heard any of these voices. */
+.personas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.persona {
+  font: inherit;
+  flex: 1 1 44%;
+  min-width: 130px;
+  text-align: left;
+  padding: 8px 11px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--panel-border);
+  color: var(--muted);
+  cursor: pointer;
+}
+.persona .persona-name { display: block; font-size: 13px; font-weight: 600; color: var(--text); }
+.persona .persona-blurb { display: block; font-size: 11px; line-height: 1.35; margin-top: 2px; }
+.persona[aria-pressed="true"] {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: rgba(56, 189, 248, 0.55);
+  color: var(--text);
+}
+
+.voice-select {
+  font: inherit;
+  width: 100%;
+  margin-top: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+}
+/* Only shown when the account actually has voices to choose between. */
+.voice-select[hidden] { display: none; }
+
+/* Licence attribution on the first screen. ODbL is a condition of using the
+   OpenStreetMap-derived course, so this is required text, not a nicety - but it
+   sits below the buttons and stays out of the way of someone starting a race. */
+.attribution {
+  margin: 16px 0 0;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--muted);
+  opacity: 0.75;
+}
+.attribution a { color: inherit; }
+
+/* --- Optional layout: webcam as a corner panel instead of the background ----
+   Toggled with V (body.video-panel). The wheel is drawn into the panel, the
+   hand-fade on the scene is dropped, and the page paints a sky/ground split at
+   the renderer's horizon (15% down) so the 3D world has something behind it. */
+body.video-panel {
+  background: linear-gradient(to bottom, #0d1524 0%, #16233a 15%, #0b1d12 15.2%, #060f09 100%);
+}
+body.video-panel #scrim { display: none; }
+body.video-panel #video {
+  inset: auto;
+  right: 18px;
+  bottom: 18px;
+  width: 320px;
+  height: 240px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  z-index: 4;
+}
+body.video-panel #overlay { z-index: 4; }

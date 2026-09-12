@@ -62,6 +62,14 @@
       <button id="btn-enable" class="primary">Enable camera</button>
       <button id="btn-keyboard" class="ghost">Play with arrow keys instead</button>
       <p id="permission-error" class="error" hidden></p>
+      <!-- ODbL requires the credit reach people who use the work, not just the
+           repo, and the game is what is distributed. Kept small but present. -->
+      <p class="attribution">
+        Course from the CMU Buggy Course, derived from
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+        data © OpenStreetMap contributors (ODbL). Elevation by Open-Meteo.
+        Cars by Kenney (CC0).
+      </p>
     </div>
   </div>
 
@@ -75,6 +83,14 @@
         <div class="car-preview"><img id="car-preview-img" alt="Selected car" /></div>
         <div class="swatches" id="car-colors"></div>
         <div class="shapes" id="car-shapes"></div>
+      </div>
+
+      <div class="picker">
+        <h3>Commentator</h3>
+        <div class="personas" id="persona-list"></div>
+        <select id="voice-select" class="voice-select" aria-label="Commentary voice">
+          <option value="">Default voice</option>
+        </select>
       </div>
 
       <button id="btn-name" class="primary">Continue</button>
