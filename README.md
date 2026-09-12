@@ -1,4 +1,4 @@
-# GhostRace
+# Buggy Racer
 
 A browser racing game steered with your hands. Hold them up as if gripping an
 invisible wheel; a webcam tracks them and the angle between them steers the car.

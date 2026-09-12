@@ -1,4 +1,4 @@
-# GhostRace reverse proxy for Vultr.
+# Buggy Racer reverse proxy for Vultr.
 #
 # Caddy is used specifically because it obtains and renews Let's Encrypt
 # certificates automatically from these few lines. getUserMedia will not run

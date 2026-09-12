@@ -1,4 +1,4 @@
-# Deploying GhostRace to Vultr
+# Deploying Buggy Racer to Vultr
 
 Do the DNS step first. Everything else can be done in twenty minutes; DNS
 propagation cannot be rushed, and without a domain there is no HTTPS, without
