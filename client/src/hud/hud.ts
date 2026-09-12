@@ -1,6 +1,10 @@
 import type { RunSummary } from '../../../shared/types';
 import type { Standing } from '../game/racers';
-import { RACER_COLORS } from '../render/scene';
+// hud/ imports nothing from render/. It previously took its colours from
+// render/scene.ts, the module being swapped to Three.js; carSprites.ts is no
+// safer, since a 3D renderer may drop 2D sprites entirely. The palette is wire
+// contract, so it lives in shared/ and the HUD reads it from there.
+import { carColor } from '../../../shared/palette';
 import { formatDelta, formatTime } from '../util/math';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -100,7 +104,7 @@ export class Hud {
       existing.delete(s.racer.id);
       li.className = s.racer.isLocalPlayer ? 'me' : '';
       li.querySelector('.pos')!.textContent = String(s.position);
-      const color = RACER_COLORS[s.racer.colorIndex % RACER_COLORS.length];
+      const color = carColor(s.racer.colorIndex);
       li.querySelector('.nm')!.innerHTML =
         `<span class="dot" style="background:${color}"></span>${escapeHtml(s.racer.displayName)}`;
       li.querySelector('.gap')!.textContent =
@@ -119,7 +123,7 @@ export class Hud {
       if (!m) {
         m = document.createElement('div');
         m.className = s.racer.isLocalPlayer ? 'marker me' : 'marker';
-        m.style.background = RACER_COLORS[s.racer.colorIndex % RACER_COLORS.length];
+        m.style.background = carColor(s.racer.colorIndex);
         this.markersEl.appendChild(m);
         this.markers.set(s.racer.id, m);
       }

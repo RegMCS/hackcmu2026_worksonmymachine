@@ -1,5 +1,6 @@
 import type { PathSample, RacerState, Run } from '../../../shared/types';
 import type { TrackGeometry } from './track';
+import { TUNING } from './physics';
 import { lerp, lerpAngle } from '../util/math';
 
 /**
@@ -12,8 +13,7 @@ export class GhostPlayer {
   readonly run: Run;
   private path: PathSample[];
   private cursor = 0;
-  private trackDistance = 0;
-  private lastSegment = 0;
+  private distances: number[] = [];
 
   constructor(
     run: Run,
@@ -25,6 +25,18 @@ export class GhostPlayer {
     this.id = run._id ?? `ghost-${Math.random().toString(36).slice(2)}`;
     this.displayName = run.playerName;
     this.path = run.path ?? [];
+    // Precompute from every sample: matchmaking can seek directly into lap 3.
+    let distance = 0, previous = 0, segment = 0;
+    for (const p of this.path) {
+      const proj = geom.project(p.x, p.y, segment);
+      segment = proj.segmentIndex;
+      let delta = proj.s - previous;
+      if (delta > geom.length / 2) delta -= geom.length;
+      if (delta < -geom.length / 2) delta += geom.length;
+      distance += delta;
+      previous = proj.s;
+      this.distances.push(distance);
+    }
   }
 
   get totalTime(): number {
@@ -33,15 +45,15 @@ export class GhostPlayer {
 
   reset(): void {
     this.cursor = 0;
-    this.trackDistance = 0;
-    this.lastSegment = 0;
+
   }
 
   /** Interpolated state at race time `t`. Returns null if the path is unusable. */
   sample(t: number): RacerState | null {
     if (this.path.length === 0) return null;
 
-    // The cursor only moves forward, so playback stays O(1) per frame.
+    if (t < this.path[this.cursor].t) this.cursor = 0;
+    // Normal playback stays O(1) per frame; backward seeks restart the cursor.
     while (this.cursor < this.path.length - 2 && this.path[this.cursor + 1].t <= t) this.cursor++;
 
     const a = this.path[this.cursor];
@@ -53,13 +65,7 @@ export class GhostPlayer {
     const y = lerp(a.y, b.y, f);
     const heading = lerpAngle(a.heading, b.heading, f);
 
-    const proj = this.geom.project(x, y, this.lastSegment);
-    this.lastSegment = proj.segmentIndex;
-    const prevWrapped = this.trackDistance % this.geom.length;
-    let delta = proj.s - prevWrapped;
-    if (delta > this.geom.length / 2) delta -= this.geom.length;
-    if (delta < -this.geom.length / 2) delta += this.geom.length;
-    this.trackDistance += delta;
+    const trackDistance = lerp(this.distances[this.cursor], this.distances[Math.min(this.cursor + 1, this.path.length - 1)], f);
 
     const finished = t >= this.run.totalTime;
 
@@ -69,8 +75,8 @@ export class GhostPlayer {
       x,
       y,
       heading,
-      trackDistance: finished ? this.geom.length : this.trackDistance,
-      lapProgress: Math.min(1, this.trackDistance / this.geom.length),
+      trackDistance: finished ? this.geom.length * TUNING.LAPS : trackDistance,
+      lapProgress: finished ? 1 : ((trackDistance % this.geom.length) + this.geom.length) % this.geom.length / this.geom.length,
       isLocalPlayer: false,
       source: 'ghost',
       finished,
@@ -99,7 +105,7 @@ export class GhostRecorder {
     // compounds the float error in an accumulating clock, which silently drops
     // roughly one sample in eight.
     this.nextAt = (Math.floor(t * this.recordHz) + 1) / this.recordHz;
-    this.samples.push({ t: +t.toFixed(3), x: +x.toFixed(1), y: +y.toFixed(1), heading: +heading.toFixed(3) });
+    this.samples.push({ t: +t.toFixed(3), x: +x.toFixed(3), y: +y.toFixed(3), heading: +heading.toFixed(3) });
   }
 
   /**

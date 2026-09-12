@@ -71,7 +71,11 @@ export class RacerManager {
       h.push(now, r.trackDistance);
     }
 
-    const sorted = [...racers].sort((a, b) => b.trackDistance - a.trackDistance);
+    const sorted = [...racers].sort((a, b) => {
+      if (a.finished && b.finished) return (a.finishTime ?? Infinity) - (b.finishTime ?? Infinity);
+      if (a.finished !== b.finished) return a.finished ? -1 : 1;
+      return b.trackDistance - a.trackDistance;
+    });
     const standings: Standing[] = sorted.map((racer, i) => ({
       racer,
       position: i + 1,
@@ -87,6 +91,9 @@ export class RacerManager {
    * the one that has already been where the trailing racer now is.
    */
   gapBetween(ahead: RacerState, behind: RacerState, now: number): number | null {
+    if (ahead.finished && behind.finished && ahead.finishTime !== undefined && behind.finishTime !== undefined) {
+      return Math.max(0, behind.finishTime - ahead.finishTime);
+    }
     const h = this.history.get(ahead.id);
     if (!h) return null;
     const t = h.timeAt(behind.trackDistance);

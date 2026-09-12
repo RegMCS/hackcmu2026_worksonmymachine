@@ -1,5 +1,23 @@
-import type { TrackDef } from '../../../shared/types';
+import type { TrackDef, TrackObstacleDef } from '../../../shared/types';
 import { TUNING } from './physics';
+
+/** Additive course metadata lives here; the shared wire contract stays frozen. */
+export interface CourseDef extends TrackDef {
+  elevation?: number[];
+  sections?: { name: string; at: number }[];
+  obstacleSeed?: number;
+  attribution?: string;
+}
+
+export function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), a | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 export interface Obstacle {
   index: number;
@@ -55,7 +73,7 @@ function densify(control: [number, number][], samples: number): { x: number; y: 
 }
 
 export class TrackGeometry {
-  readonly def: TrackDef;
+  readonly def: CourseDef;
   readonly trackWidth: number;
   readonly length: number;
   readonly sectorBoundaries: number[]; // cumulative s at each sector end
@@ -68,7 +86,7 @@ export class TrackGeometry {
   private segLen: number[];
   private buckets: Map<number, Obstacle[]> = new Map();
 
-  constructor(def: TrackDef) {
+  constructor(def: CourseDef, seed = def.obstacleSeed) {
     this.def = def;
     this.trackWidth = TUNING.TRACK_WIDTH_OVERRIDE ?? def.trackWidth;
     this.pts = densify(def.centerline, def.samplesPerSegment ?? 14);
@@ -94,12 +112,19 @@ export class TrackGeometry {
     this.cum[n] = acc;
     this.length = acc;
 
-    this.sectorBoundaries = [];
-    for (let i = 1; i <= def.sectorCount; i++) {
-      this.sectorBoundaries.push((this.length * i) / def.sectorCount);
-    }
+    this.sectorBoundaries = def.sections?.length
+      ? [...def.sections.slice(1).map(s => s.at * this.length), this.length]
+      : Array.from({ length: def.sectorCount }, (_, i) => this.length * (i + 1) / def.sectorCount);
 
-    this.obstacles = this.expandObstacles(def);
+    const obstacles: TrackObstacleDef[] = seed === undefined ? def.obstacles : [];
+    if (seed !== undefined) {
+      const rand = mulberry32(seed);
+      for (let s = TUNING.OBSTACLE_START_CLEARANCE; s < this.length - TUNING.OBSTACLE_START_CLEARANCE;
+        s += TUNING.OBSTACLE_SPACING + rand() * TUNING.OBSTACLE_JITTER) {
+        obstacles.push({ type: 'cone', s, d: (rand() * 2 - 1) * (this.trackWidth / 2 - TUNING.OBSTACLE_EDGE_MARGIN) });
+      }
+    }
+    this.obstacles = this.expandObstacles({ ...def, obstacles });
     for (const ob of this.obstacles) {
       const b = Math.floor(ob.s / BUCKET_SIZE);
       if (!this.buckets.has(b)) this.buckets.set(b, []);
@@ -256,6 +281,32 @@ export class TrackGeometry {
       if (ds >= -120 && ds <= span) out.push(ob);
     }
     return out;
+  }
+
+  /** Height is queried only by renderers, never by physics or projection. */
+  elevationAt(s: number): number {
+    const heights = this.def.elevation;
+    if (!heights?.length) return 0;
+    const d = ((s % this.length) + this.length) % this.length;
+    let lo = 0, hi = this.pts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (this.cum[mid] <= d) lo = mid; else hi = mid - 1;
+    }
+    const samples = this.def.samplesPerSegment ?? 14;
+    const u = (lo + (d - this.cum[lo]) / this.segLen[lo]) / samples;
+    const i = Math.floor(u), f = u - i;
+    return heights[i % heights.length] * (1 - f) + heights[(i + 1) % heights.length] * f;
+  }
+
+  sectionNameAt(s: number): string {
+    const i = this.sectorIndexFor(s);
+    return this.def.sections?.[i]?.name ?? `Sector ${i + 1}`;
+  }
+
+  sectorEndAt(index: number): number {
+    const n = this.sectorBoundaries.length;
+    return Math.floor(index / n) * this.length + this.sectorBoundaries[index % n];
   }
 
   sectorIndexFor(trackDistance: number): number {

@@ -2,6 +2,7 @@ import { EVENT_PRIORITY, type GameEvent, type GameEventType } from '../game/even
 import { api } from '../net/api';
 import { PhraseBank, type PickedPhrase } from './phraseBank';
 import { getAudioContext, unlockAudio } from './context';
+import { PERSONA_DEFAULT } from '../../../shared/personas';
 
 /**
  * Live race commentary.
@@ -48,6 +49,17 @@ export class Commentator {
    *  if the TTS quota runs out mid-event. */
   onLine: ((text: string, source: 'cached' | 'live') => void) | null = null;
   bankOnly = false;
+  /**
+   * Persona and voice apply to LIVE lines only. The committed phrase bank was
+   * generated once in the `hype` register and is not re-synthesised per persona
+   * - that would cost roughly a thousand ElevenLabs credits per persona and the
+   * bank is deliberately the cheap, instant, primary path. So picking a persona
+   * colours the handful of contextual moments per race, and the common events
+   * keep the house voice. See shared/personas.ts.
+   */
+  persona = PERSONA_DEFAULT;
+  /** ElevenLabs voice id, or null for the server's configured default. */
+  voiceId: string | null = null;
   private ctx: AudioContext | null = null;
   private bank: PhraseBank | null = null;
   private current: AudioBufferSourceNode | HTMLAudioElement | null = null;
@@ -151,6 +163,7 @@ export class Commentator {
           gap: ctx.gap,
           collisions: ctx.collisions,
           details: event.data,
+          persona: this.persona,
         });
         if (res?.text) {
           this.lastLine = res.text;
@@ -177,7 +190,7 @@ export class Commentator {
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, persona: this.persona, voiceId: this.voiceId ?? undefined }),
       });
       if (!res.ok) return false;
       const blob = await res.blob();
@@ -220,5 +233,28 @@ export class Commentator {
       /* already ended */
     }
     this.current = null;
+  }
+}
+
+export interface VoiceOption {
+  id: string;
+  name: string;
+  description: string;
+}
+
+/**
+ * Voices the ElevenLabs account can actually synthesise with.
+ *
+ * Fails soft to an empty list, which the picker renders as "Default voice" only
+ * - no key, no network, no ElevenLabs, and the screen still works.
+ */
+export async function fetchVoices(): Promise<VoiceOption[]> {
+  try {
+    const res = await fetch('/api/voices');
+    if (!res.ok) return [];
+    const data = (await res.json()) as VoiceOption[];
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
   }
 }

@@ -6,10 +6,10 @@ import type { TrackDef } from '../../shared/types';
 const def = JSON.parse(readFileSync('client/public/tracks/circuit-01.json','utf8')) as TrackDef;
 const g = new TrackGeometry(def);
 const minRadiusCar = TUNING.BASE_SPEED / TUNING.MAX_TURN_RATE;
-console.log(`car min turn radius @full speed: ${minRadiusCar.toFixed(0)}px`);
-console.log(`car min turn radius @off-track (60%): ${(TUNING.BASE_SPEED*0.6/TUNING.MAX_TURN_RATE).toFixed(0)}px`);
+console.log(`car min turn radius @full speed: ${minRadiusCar.toFixed(0)}m`);
+console.log(`car min turn radius @off-track (60%): ${(TUNING.BASE_SPEED*0.6/TUNING.MAX_TURN_RATE).toFixed(0)}m`);
 
-const STEP = 30;
+const STEP = 0.5;
 let worst = {s:0, r:Infinity};
 const tight: {s:number,r:number}[] = [];
 for (let s=0; s<g.length; s+=STEP) {
@@ -20,8 +20,10 @@ for (let s=0; s<g.length; s+=STEP) {
   if (r<worst.r) worst={s,r};
   if (r < 400) tight.push({s,r});
 }
-console.log(`tightest corner radius: ${worst.r.toFixed(0)}px at s=${worst.s}`);
-console.log(`corners under 400px radius: ${tight.length} samples`);
+console.log(`tightest corner radius: ${worst.r.toFixed(0)}m at s=${worst.s}`);
+console.log(`corners under 400m radius: ${tight.length} samples`);
 console.log(`ratio tightest/car-min: ${(worst.r/minRadiusCar).toFixed(2)}x  (want >2x for comfort)`);
 // how much of the lap is tight?
 console.log(`tight fraction of lap: ${(tight.length*STEP/g.length*100).toFixed(1)}%`);
+
+if (worst.r / minRadiusCar <= 2) process.exit(1);
