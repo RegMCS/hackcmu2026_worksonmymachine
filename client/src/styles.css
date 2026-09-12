@@ -516,3 +516,15 @@ input {
 }
 /* Only shown when the account actually has voices to choose between. */
 .voice-select[hidden] { display: none; }
+
+/* Licence attribution on the first screen. ODbL is a condition of using the
+   OpenStreetMap-derived course, so this is required text, not a nicety - but it
+   sits below the buttons and stays out of the way of someone starting a race. */
+.attribution {
+  margin: 16px 0 0;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--muted);
+  opacity: 0.75;
+}
+.attribution a { color: inherit; }

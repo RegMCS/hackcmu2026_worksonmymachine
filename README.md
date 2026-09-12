@@ -202,7 +202,6 @@ anything.
   on 30 September 2025, so the server is required for persistence.
 - **Ghosts never collide** with anything, including each other. They are purely
   visual, by design.
-- **Single lap only.** Multi-lap racing is not implemented.
 
 ## Before demoing somewhere new
 
@@ -224,3 +223,13 @@ anything.
 
 Car sprites from the [Kenney Racing Pack](https://kenney.nl/assets/racing-pack),
 CC0. See `client/public/cars/LICENSE.txt`.
+
+The CMU Buggy Course geometry is derived from **OpenStreetMap** data.
+© OpenStreetMap contributors, licensed under the
+[Open Database Licence](https://www.openstreetmap.org/copyright) (ODbL).
+Elevation data from [Open-Meteo](https://open-meteo.com/).
+
+ODbL is share-alike: the derived track in `client/public/tracks/` carries the
+same attribution in its own `attribution` field, and any redistribution of that
+geometry - or of a database derived from it - must keep the credit and stay
+under ODbL. This is a licence condition, not a courtesy.

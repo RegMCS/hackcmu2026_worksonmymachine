@@ -106,6 +106,18 @@ curl -s https://YOUR-DOMAIN/api/health   # "store" must say "mongo", not "file"
 Until that is done the server falls back to the local file store: the game plays
 normally, but runs live on one box only.
 
+**Status:** done for the current box — `64.177.44.73/32` is listed and
+`/api/health` reports `"store":"mongo"`. The box egresses from exactly that
+address and has no IPv6, so a single `/32` is sufficient; if the entry is
+`0.0.0.0/0`, tighten it.
+
+**The field is per-track, and the track id changed.** Runs are stored under the
+track's own `id` (`geom.def.id`), not the filename. The Buggy Course is
+`buggy-3lap-v1`, so the 25 runs seeded under the old `circuit-01` are invisible
+to it — deploying the new course gives a correct but *empty* grid: no ghosts, no
+matchmade rival, no leaderboard. Re-seed after deploying a new track, or the
+demo is a lone car on an empty circuit.
+
 ## 6. Seed the field
 
 Matchmaking needs opponents before the first player of the day arrives.

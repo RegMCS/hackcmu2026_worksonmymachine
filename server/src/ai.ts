@@ -52,8 +52,10 @@ EVENT MEANINGS:
 - took_lead: the driver is now leading the race
 - close_battle: the driver and their rival are within half a second
 - sector_time: the driver completed a sector, split given in seconds
-- final_lap: the driver has entered the FINAL SECTOR of a single-lap race; say
-  "final sector" or "last stretch", never "final lap"
+- final_lap: the driver has started the last of the three laps; "final lap" is
+  now literally correct, so say it
+- lap_complete: the driver finished a lap and is starting the next one; the
+  'lap' field says which lap they are now on
 - personal_best: the driver just set their fastest ever time
 - race_finish: the driver has crossed the finish line
 - rival_matched: a pace-matched rival has joined the race
@@ -129,6 +131,7 @@ export async function generateCommentary(req: CommentaryRequest): Promise<string
   // A constrained context line, not raw game state.
   const ALLOWED_DETAILS = new Set([
     'passed', 'rival', 'sector', 'split', 'obstacle', 'total', 'time', 'position', 'delta',
+    'lap', 'laps',
   ]);
   const details = Object.entries(req.details ?? {})
     .filter(([k, v]) => ALLOWED_DETAILS.has(k) && v !== undefined && v !== null && v !== '')
