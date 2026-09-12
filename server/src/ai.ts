@@ -1,4 +1,5 @@
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
+import { getPersona } from '../../shared/personas.js';
 
 /**
  * Gemini commentary.
@@ -31,7 +32,7 @@ const THINKING_LEVEL = THINKING_LEVELS[THINKING_LEVEL_NAME] ?? ThinkingLevel.MIN
  * cached input tokens and it is the difference between "Ethan storms into the
  * lead" on an overtake and a generic cheer.
  */
-const SYSTEM_PROMPT = `You are a live motorsport commentator for a hand-gesture racing game.
+const BASE_PROMPT = `You are commentating a hand-gesture racing game.
 The driver steers by rotating both hands like an invisible steering wheel.
 Speed is constant: there is no throttle, brake or gear change, so NEVER mention
 accelerating, braking, gears, pedals or tyres wearing.
@@ -61,12 +62,21 @@ RULES, all mandatory:
 - Exactly ONE sentence.
 - Under 12 words.
 - Present tense.
-- Excited sports-commentator register.
+- Stay fully in character; the character's voice matters more than the facts.
 - Use the driver's name or the rival's name when one is given.
 - Never invent facts that are not in the context.
 - Say times naturally and rounded, e.g. "nine seconds" not "nine point eight four".
 - No emoji, no quotation marks, no preamble, no markdown.
 Return only the sentence.`;
+
+/**
+ * The persona sets the voice; BASE_PROMPT keeps the facts honest. Order matters:
+ * the character comes first so the model reads it as identity, and the hard
+ * rules come last so they are the most recent instruction in the window.
+ */
+function systemPrompt(persona: string | undefined): string {
+  return `You are ${getPersona(persona).prompt}.\n\n${BASE_PROMPT}`;
+}
 
 let client: GoogleGenAI | null = null;
 function getClient(): GoogleGenAI | null {
@@ -89,6 +99,8 @@ export interface CommentaryRequest {
   /** Event-specific payload (which rival was passed, which sector, and so on).
    *  Dropping this was why commentary read as generic and off-context. */
   details?: Record<string, string | number | boolean>;
+  /** Persona key from shared/personas. Unknown or absent falls back to `hype`. */
+  persona?: string;
 }
 
 export async function generateCommentary(req: CommentaryRequest): Promise<string | null> {
@@ -117,7 +129,7 @@ export async function generateCommentary(req: CommentaryRequest): Promise<string
     .join(' ');
 
   const base = {
-    systemInstruction: SYSTEM_PROMPT,
+    systemInstruction: systemPrompt(req.persona),
     // Generous relative to twelve words: if reasoning ever does kick in, the
     // line still has room to come out rather than returning empty.
     maxOutputTokens: 80,
@@ -169,10 +181,18 @@ export async function mintElevenLabsToken(): Promise<{ token: string; voiceId: s
  * unavailable. Slower than a direct browser WebSocket, but it keeps commentary
  * working rather than silently dropping it.
  */
-export async function synthesizeSpeech(text: string): Promise<ArrayBuffer | null> {
+export async function synthesizeSpeech(
+  text: string,
+  opts: { persona?: string; voiceId?: string } = {},
+): Promise<ArrayBuffer | null> {
   const key = process.env.ELEVENLABS_API_KEY;
-  const voiceId = process.env.ELEVENLABS_VOICE_ID;
+  // A caller-supplied voice must look like an ElevenLabs id before it is pasted
+  // into a URL: this value arrives from the browser, and the shape check is what
+  // stops a crafted "voice id" steering the request somewhere else.
+  const chosen = /^[A-Za-z0-9]{10,40}$/.test(opts.voiceId ?? '') ? opts.voiceId : undefined;
+  const voiceId = chosen ?? process.env.ELEVENLABS_VOICE_ID;
   if (!key || !voiceId) return null;
+  const persona = getPersona(opts.persona);
 
   const res = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=mp3_22050_32`,
@@ -182,7 +202,14 @@ export async function synthesizeSpeech(text: string): Promise<ArrayBuffer | null
       body: JSON.stringify({
         text,
         model_id: process.env.ELEVENLABS_MODEL ?? 'eleven_flash_v2_5',
-        voice_settings: { stability: 0.35, similarity_boost: 0.75, use_speaker_boost: false },
+        // The persona drives delivery, not just wording: a deadpan golf announcer
+        // read at the hype persona's stability sounds like the hype persona.
+        voice_settings: {
+          stability: persona.stability,
+          similarity_boost: 0.75,
+          style: persona.style,
+          use_speaker_boost: false,
+        },
       }),
     },
   );
@@ -196,3 +223,48 @@ export const aiStatus = () => ({
   elevenlabs: !!(process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID),
   geminiModel: MODEL,
 });
+
+export interface VoiceInfo {
+  id: string;
+  name: string;
+  description: string;
+}
+
+/**
+ * Voices available in the ElevenLabs account.
+ *
+ * Free plans can only synthesise with voices actually added to the account, so
+ * a hardcoded voice id from the public library fails at synthesis time with a
+ * confusing error. Asking the account what it has is the only reliable way to
+ * populate a picker.
+ *
+ * Cached for ten minutes: the list changes about never, and every race start
+ * would otherwise spend a round trip on it.
+ */
+let voiceCache: { at: number; voices: VoiceInfo[] } | null = null;
+
+export async function listVoices(): Promise<VoiceInfo[]> {
+  const key = process.env.ELEVENLABS_API_KEY;
+  if (!key) return [];
+  if (voiceCache && Date.now() - voiceCache.at < 10 * 60 * 1000) return voiceCache.voices;
+
+  const res = await fetch('https://api.elevenlabs.io/v1/voices', {
+    headers: { 'xi-api-key': key },
+  });
+  if (!res.ok) {
+    console.warn('[voices]', res.status);
+    return [];
+  }
+  const data = (await res.json()) as {
+    voices?: { voice_id: string; name: string; labels?: Record<string, string> }[];
+  };
+  const voices = (data.voices ?? []).map((v) => ({
+    id: v.voice_id,
+    name: v.name,
+    description: [v.labels?.gender, v.labels?.accent, v.labels?.description, v.labels?.use_case]
+      .filter(Boolean)
+      .join(', '),
+  }));
+  voiceCache = { at: Date.now(), voices };
+  return voices;
+}
