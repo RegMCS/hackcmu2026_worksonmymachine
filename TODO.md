@@ -28,8 +28,13 @@ block at the top of [`client/src/game/physics.ts`](client/src/game/physics.ts):
 After any track change: `npx tsx scripts/diag/curvature.ts`, ratio above ~2x.
 
 ### 2. Atlas is rejecting the server
-`/api/health` reports `"store":"file"` instead of `"mongo"`, so runs live on one
-box and judges do not race each other's ghosts.
+`/api/health` reports `"store":"file"` instead of `"mongo"`.
+
+The game still works and ghosts still work across devices — everyone hits the
+same server, so they share the same file store. What is actually lost: durability
+(one JSON file, no backups — if the box dies the leaderboard dies with it), write
+performance as runs accumulate (the whole file is rewritten on every save), and
+the Atlas sponsor requirement.
 
 Add `64.177.44.73/32` under **Atlas → Network Access**, then:
 
