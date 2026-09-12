@@ -23,6 +23,8 @@ import { Commentator } from './audio/commentary';
 import { Sfx } from './audio/sfx';
 import { unlockAudio } from './audio/context';
 import { api } from './net/api';
+import { MultiplayerSession } from './net/session';
+import { LobbyView } from './net/lobby';
 import { formatTime } from './util/math';
 
 const TRACK_ID = 'circuit-01';
@@ -75,6 +77,22 @@ let sfxOn = localStorage.getItem('ghostrace.sfx') !== 'off';
 /** Webcam as a corner panel (default) or as the full-screen background. Toggle with V. */
 let videoPanel = localStorage.getItem('ghostrace.videoPanel') !== 'off';
 let lastCountdownPip = -1;
+
+const mp = new MultiplayerSession();
+const lobby = new LobbyView({
+  onJoin: (room) => { void joinRoom(room); },
+  onSolo: () => { mp.leave(); proceedToRace(); },
+  onStart: () => mp.requestStart(race?.geom.def.id ?? 'buggy-3lap-v1'),
+  onReady: (ready) => mp.setReady(ready),
+  onLeave: () => { mp.leave(); lobby.apply(mp.snapshot()); lobby.setHint(''); },
+});
+mp.onChange((snap) => {
+  lobby.apply(snap);
+  if (!race) return;
+  if (snap.assignedColor != null) (race as any).opts.colorIndex = snap.assignedColor;
+  if (snap.assignedShape != null) (race as any).opts.carShape = snap.assignedShape;
+});
+mp.onRaceStart((ev) => proceedToRace(ev.at));
 
 function applyVideoLayout(): void {
   document.body.classList.toggle('video-panel', videoPanel);
@@ -145,7 +163,10 @@ async function boot(): Promise<void> {
       case 'collision': sfx.impact(1); break;
       case 'oil': sfx.oil(); break;
       case 'near_miss': sfx.nearMiss(); break;
-      case 'race_finish': sfx.finish(); break;
+      case 'race_finish':
+        sfx.finish();
+        mp.sendFinish(e.at);
+        break;
     }
     commentator.offer(e, race.time, commentaryContext());
   });
@@ -169,6 +190,7 @@ async function boot(): Promise<void> {
       get tracker() { return tracker; },
       steering,
       commentator,
+      mp,
       TUNING,
       /** Feed synthetic hands so the wheel can be seen without a camera. */
       simulateHands(angleDeg: number, spread = 0.22, cy = 0.74) {
@@ -232,6 +254,13 @@ async function refreshLeaderboard(): Promise<void> {
 }
 
 // --- Setup flow ------------------------------------------------------------
+if (!window.isSecureContext) {
+  const err = $('permission-error');
+  err.hidden = false;
+  err.textContent =
+    'Camera needs https:// (this is a plain http:// address). Play with arrow keys, or open the https link.';
+}
+
 $('btn-enable').addEventListener('click', async () => {
   const err = $('permission-error');
   err.hidden = true;
@@ -241,8 +270,9 @@ $('btn-enable').addEventListener('click', async () => {
     // A denied or missing camera gets a designed state and a working fallback,
     // never a broken layout.
     err.hidden = false;
-    err.textContent =
-      `Camera unavailable (${(e as Error).name}). Check browser permissions, or play with arrow keys.`;
+    err.textContent = (e as Error).message?.includes('http')
+      ? (e as Error).message
+      : `Camera unavailable (${(e as Error).name}). Check browser permissions, or play with arrow keys.`;
     return;
   }
   mode = 'hands';
@@ -273,7 +303,7 @@ $('btn-keyboard').addEventListener('click', () => {
 $('btn-skip-calib').addEventListener('click', () => {
   mode = 'keyboard';
   steering.mode = 'keyboard';
-  startRace();
+  showLobby();
 });
 
 /** Car picker: colour swatches and body shapes, with a live preview. */
@@ -346,8 +376,9 @@ const submitName = () => {
     (race as any).opts.carShape = carShape;
   }
   void race?.loadGrid();
+  // Calibrate before the lobby so a synced start is not spent holding a pose.
   if (mode === 'hands') beginCalibration();
-  else startRace();
+  else showLobby();
 };
 $('btn-name').addEventListener('click', submitName);
 $<HTMLInputElement>('input-name').addEventListener('keydown', (e) => {
@@ -361,7 +392,34 @@ function beginCalibration(): void {
   hud.hide();
 }
 
-function startRace(): void {
+function showLobby(): void {
+  appPhase = 'setup';
+  screens.calibrate.hidden = true;
+  screens.results.hidden = true;
+  hud.hide();
+  lobby.show();
+  lobby.apply(mp.snapshot());
+}
+
+async function joinRoom(room: string): Promise<void> {
+  const ok = await mp.join(room, playerName, carColor, carShape);
+  if (!ok) return;
+  const health = await api.health();
+  const lan = health?.lan ?? [];
+  const port = location.port ? `:${location.port}` : '';
+  lobby.setHint(
+    lan.length
+      ? `On this Wi-Fi: ${location.protocol}//${lan[0]}${port} — join room "${room}".`
+      : `Share this page and room "${room}".`,
+  );
+}
+
+function proceedToRace(syncedAt?: number): void {
+  lobby.hide();
+  startRace(syncedAt);
+}
+
+function startRace(syncedAt?: number): void {
   appPhase = 'racing';
   screens.calibrate.hidden = true;
   screens.results.hidden = true;
@@ -372,6 +430,10 @@ function startRace(): void {
   lastCountdownPip = -1;
   sfx.start();
   race!.start();
+  // Server `at` is GO; trim the local countdown so every client lights out together.
+  if (syncedAt != null) {
+    race!.countdown = Math.max(0, (syncedAt - Date.now()) / 1000);
+  }
 }
 
 // --- Main loop -------------------------------------------------------------
@@ -394,8 +456,19 @@ function loop(now: number): void {
   if (appPhase === 'calibrating') {
     updateCalibration(frame, dt);
   } else if (appPhase === 'racing' && race) {
+    race.remoteStates = mp.sampleRemotes(now);
     const steer = steering.update(frame, now / 1000, dt);
     race.update(dt, steer);
+    if (race.phase === 'countdown' || race.phase === 'racing') {
+      mp.pumpState(now, {
+        x: race.car.x,
+        y: race.car.y,
+        heading: race.car.heading,
+        trackDistance: race.car.trackDistance,
+        lapProgress: ((race.car.trackDistance % race.geom.length) + race.geom.length) % race.geom.length / race.geom.length,
+        lap: race.lap,
+      });
+    }
     renderRace(dt);
     if (race.phase === 'finished') void showResults();
   }
@@ -425,7 +498,7 @@ function updateCalibration(frame: TrackingFrame | null, dt: number): void {
 
   if (neutral !== null) {
     steering.calibrate(neutral);
-    startRace();
+    showLobby();
   }
 }
 
@@ -542,6 +615,11 @@ function restart(): void {
   resultsShown = false;
   screens.results.hidden = true;
   screens.qr.hidden = true;
+  if (mp.inRoom) {
+    mp.returnToLobby();
+    showLobby();
+    return;
+  }
   void race.loadGrid();
   if (mode === 'hands' && !steering.calibrated) beginCalibration();
   else startRace();
@@ -608,6 +686,7 @@ function updateDebug(): void {
     `cars       ${spritesLoaded}/25 sprites  (you: colour ${carColor} shape ${carShape})`,
     `commentary ${commentator.phraseCount} cached phrases`,
     `backend    ${api ? 'ready' : ''}`,
+    `multiplayer ${mp.inRoom ? `room=${mp.snapshot().room} ${mp.snapshot().players.length}p` : 'solo'} ${mp.snapshot().connected ? 'ws' : 'offline'} remotes=${mp.remotes.size}`,
   ];
   debugEl.textContent = lines.filter(Boolean).join('\n');
 }

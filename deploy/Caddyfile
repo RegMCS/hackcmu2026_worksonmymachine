@@ -19,6 +19,8 @@ ghostrace.example.com {
 	header @static Cache-Control "public, max-age=604800, immutable"
 
 	# Everything, API included, is served same-origin, so there is no CORS.
+	# reverse_proxy upgrades WebSocket connections on /ws automatically —
+	# do not add header_up overrides that strip Connection or Upgrade.
 	reverse_proxy localhost:8787
 }
 

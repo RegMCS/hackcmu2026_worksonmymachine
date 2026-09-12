@@ -167,18 +167,40 @@ export class HandTracker {
 }
 
 export async function startCamera(video: HTMLVideoElement): Promise<MediaStream> {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: {
-      width: { ideal: 1280 },
-      height: { ideal: 720 },
-      // 60fps halves the frame-cadence contribution to end-to-end latency, which
-      // is the dominant term once inference is on the GPU.
-      frameRate: { ideal: 60, min: 24 },
-      facingMode: 'user',
+  // getUserMedia is undefined on insecure origins (plain http:// on a LAN IP),
+  // which used to throw a raw TypeError. Keyboard play still works.
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+    throw new Error(
+      'The browser blocks the camera on http:// addresses. Play with arrow keys, or open this page over https://.',
+    );
+  }
+
+  const attempts: MediaStreamConstraints[] = [
+    {
+      video: {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        // 60fps halves the frame-cadence contribution to end-to-end latency.
+        frameRate: { ideal: 60, min: 24 },
+        facingMode: 'user',
+      },
+      audio: false,
     },
-    audio: false,
-  });
-  video.srcObject = stream;
-  await video.play();
-  return stream;
+    // Phones and some laptops reject the tight frameRate constraint.
+    { video: { facingMode: 'user' }, audio: false },
+    { video: true, audio: false },
+  ];
+
+  let last: unknown;
+  for (const opts of attempts) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(opts);
+      video.srcObject = stream;
+      await video.play();
+      return stream;
+    } catch (err) {
+      last = err;
+    }
+  }
+  throw last instanceof Error ? last : new Error('Camera unavailable');
 }
