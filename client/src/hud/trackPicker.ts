@@ -42,7 +42,8 @@ export function drawCoursePreview(
   h: number,
 ): void {
   ctx.clearRect(0, 0, w, h);
-  const pts = densify(def.centerline as Control[], def.samplesPerSegment ?? 14, true);
+  const closed = def.closed !== false;
+  const pts = densify(def.centerline as Control[], def.samplesPerSegment ?? 14, closed);
   if (pts.length < 2) return;
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -60,7 +61,7 @@ export function drawCoursePreview(
   ctx.beginPath();
   ctx.moveTo(X(pts[0].x), Y(pts[0].y));
   for (const p of pts.slice(1)) ctx.lineTo(X(p.x), Y(p.y));
-  ctx.closePath();
+  if (closed) ctx.closePath();
 
   // Road bed, then centre line, so the shape reads as a track not a scribble.
   ctx.lineJoin = 'round';
@@ -72,10 +73,18 @@ export function drawCoursePreview(
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
+  // Start green; an open course also gets a finish, since it ends elsewhere.
   ctx.fillStyle = '#4ade80';
   ctx.beginPath();
   ctx.arc(X(pts[0].x), Y(pts[0].y), 4, 0, Math.PI * 2);
   ctx.fill();
+  if (!closed) {
+    const end = pts[pts.length - 1];
+    ctx.fillStyle = '#fb7185';
+    ctx.beginPath();
+    ctx.arc(X(end.x), Y(end.y), 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 export class TrackPicker {
@@ -185,7 +194,9 @@ export class TrackPicker {
 
     const bits: string[] = [];
     if (def.meta) {
-      bits.push(`${def.meta.lapSeconds.toFixed(0)}s per lap`);
+      bits.push(def.closed === false
+        ? `${def.meta.lapSeconds.toFixed(0)}s point to point`
+        : `${def.meta.lapSeconds.toFixed(0)}s per lap`);
       bits.push(`${def.meta.sourceMetres} m of real road`);
     }
     if (def.sections?.length) bits.push(`${def.sections.length} sections`);
@@ -197,9 +208,9 @@ export class TrackPicker {
     const clearance = def.meta?.clearance;
     if (clearance !== undefined && clearance < def.trackWidth) {
       this.warn(
-        `This route doubles back on itself (${clearance.toFixed(0)}m apart, ` +
-        `track is ${def.trackWidth}m wide). Lap counting may jump - try endpoints ` +
-        `on a road that does not loop back.`,
+        `This route crosses itself (${clearance.toFixed(0)}m apart, track is ` +
+        `${def.trackWidth}m wide), so progress along it may jump where the ` +
+        `branches meet.`,
       );
     } else {
       this.clearWarning();

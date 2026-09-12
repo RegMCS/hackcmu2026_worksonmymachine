@@ -200,7 +200,7 @@ export class Race {
 
     // --- Sectors ----------------------------------------------------------
     while (
-      this.nextSector < this.geom.sectorBoundaries.length * TUNING.LAPS &&
+      this.nextSector < this.geom.sectorBoundaries.length * this.geom.laps &&
       this.car.trackDistance >= this.geom.sectorEndAt(this.nextSector)
     ) {
       const idx = this.nextSector;
@@ -213,8 +213,8 @@ export class Race {
       if (idx === 0 && !this.matchmakeDone) void this.matchmake(split);
       if ((idx + 1) % this.geom.sectorBoundaries.length === 0) {
         const lap = (idx + 1) / this.geom.sectorBoundaries.length;
-        this.bus.emit('lap_complete', this.time, { lap, laps: TUNING.LAPS });
-        if (lap === TUNING.LAPS - 1) this.bus.emit('final_lap', this.time);
+        this.bus.emit('lap_complete', this.time, { lap, laps: this.geom.laps });
+        if (lap === this.geom.laps - 1) this.bus.emit('final_lap', this.time);
       }
     }
 
@@ -230,7 +230,7 @@ export class Race {
     this.detectRaceEvents();
 
     // --- Finish -----------------------------------------------------------
-    if (this.car.trackDistance >= this.geom.length * TUNING.LAPS) {
+    if (this.car.trackDistance >= this.geom.length * this.geom.laps) {
       this.finish();
     }
   }
@@ -269,7 +269,7 @@ export class Race {
         x: this.car.x,
         y: this.car.y,
         heading: this.car.heading,
-        trackDistance: this.phase === 'finished' ? this.geom.length * TUNING.LAPS : this.car.trackDistance,
+        trackDistance: this.phase === 'finished' ? this.geom.length * this.geom.laps : this.car.trackDistance,
         lapProgress: this.phase === 'finished' ? 1 : ((this.car.trackDistance % this.geom.length) + this.geom.length) % this.geom.length / this.geom.length,
         isLocalPlayer: true,
         source: 'local',
@@ -327,7 +327,7 @@ export class Race {
     this.matchmakeDone = true;
     const projected = this.personalBest
       ? this.personalBest.totalTime
-      : sectorOneSplit * (this.geom.length * TUNING.LAPS / this.geom.sectorBoundaries[0]);
+      : sectorOneSplit * (this.geom.length * this.geom.laps / this.geom.sectorBoundaries[0]);
 
     const runs = await api.matchmake(this.opts.trackId, projected, this.opts.playerName, 4);
     if (!runs.length) return;
@@ -355,7 +355,7 @@ export class Race {
   private finish(): void {
     this.phase = 'finished';
     const total = this.time;
-    if (this.sectorTimes.length < this.geom.sectorBoundaries.length * TUNING.LAPS) {
+    if (this.sectorTimes.length < this.geom.sectorBoundaries.length * this.geom.laps) {
       const prev = this.sectorTimes.reduce((a, b) => a + b, 0);
       this.sectorTimes.push(total - prev);
     }
@@ -388,10 +388,10 @@ export class Race {
   }
 
   get lap(): number {
-    return Math.min(TUNING.LAPS, this.car.lapCount + 1);
+    return Math.min(this.geom.laps, this.car.lapCount + 1);
   }
 
-  get laps(): number { return TUNING.LAPS; }
+  get laps(): number { return this.geom.laps; }
 
   get sectionName(): string { return this.geom.sectionNameAt(this.car.trackDistance); }
 

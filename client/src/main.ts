@@ -141,7 +141,6 @@ window.addEventListener('resize', resize);
 async function boot(): Promise<void> {
   const geom = await loadTrack(`/tracks/${TRACK_ID}.json`);
   scene = new SceneRenderer(gameCanvas);
-  scene.setTrack(geom, (s) => geom.elevationAt(s));
   applyVideoLayout();
   overlay = new OverlayRenderer(overlayCanvas.getContext('2d')!);
   resize();
@@ -229,6 +228,10 @@ async function boot(): Promise<void> {
  * page reload.
  */
 function installRace(geom: TrackGeometry): void {
+  // Rebind the elevation source to THIS course. The renderer rebuilds itself
+  // when the geometry changes but keeps whatever function it was last given, so
+  // without this a new course is drawn using the previous one's heights.
+  scene?.setTrack(geom, (s) => geom.elevationAt(s));
   minimap = new Minimap(minimapCanvas.getContext('2d')!, geom, minimapCanvas.width, minimapCanvas.height);
   race = new Race({
     trackId: geom.def.id,

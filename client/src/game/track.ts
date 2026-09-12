@@ -3,6 +3,14 @@ import { TUNING } from './physics';
 
 /** Additive course metadata lives here; the shared wire contract stays frozen. */
 export interface CourseDef extends TrackDef {
+  /**
+   * False for a point-to-point course that starts and finishes in different
+   * places. Defaults to true: every surveyed course is a circuit, and a lap
+   * only means anything on a closed one.
+   */
+  closed?: boolean;
+  /** Laps to race. Defaults to TUNING.LAPS closed, and to 1 open. */
+  laps?: number;
   elevation?: number[];
   sections?: { name: string; at: number }[];
   obstacleSeed?: number;
@@ -45,16 +53,23 @@ export interface Projection {
 const BUCKET_SIZE = 400;
 
 /**
- * Closed Catmull-Rom through the hand-authored control points. This densifies an
+ * Catmull-Rom through the hand-authored control points. This densifies an
  * editable handful of points into a drivable polyline - it does not invent the
  * shape, which stays exactly where the author put it.
+ *
+ * A closed course wraps the ends into a loop; an open one clamps them, so a
+ * pasted route keeps its real start and finish instead of being bent into a
+ * circuit it never was.
  */
-function densify(control: [number, number][], samples: number): { x: number; y: number }[] {
+function densify(control: [number, number][], samples: number, closed: boolean): { x: number; y: number }[] {
   const n = control.length;
   if (n < 3) return control.map(([x, y]) => ({ x, y }));
-  const at = (i: number) => control[((i % n) + n) % n];
+  const at = closed
+    ? (i: number) => control[((i % n) + n) % n]
+    : (i: number) => control[i < 0 ? 0 : i > n - 1 ? n - 1 : i];
   const out: { x: number; y: number }[] = [];
-  for (let i = 0; i < n; i++) {
+  const spans = closed ? n : n - 1;
+  for (let i = 0; i < spans; i++) {
     const p0 = at(i - 1);
     const p1 = at(i);
     const p2 = at(i + 1);
@@ -69,11 +84,15 @@ function densify(control: [number, number][], samples: number): { x: number; y: 
       });
     }
   }
+  if (!closed) out.push({ x: control[n - 1][0], y: control[n - 1][1] });
   return out;
 }
 
 export class TrackGeometry {
   readonly def: CourseDef;
+  /** False for point-to-point courses; see CourseDef.closed. */
+  readonly closed: boolean;
+  readonly laps: number;
   readonly trackWidth: number;
   readonly length: number;
   readonly sectorBoundaries: number[]; // cumulative s at each sector end
@@ -88,17 +107,22 @@ export class TrackGeometry {
 
   constructor(def: CourseDef, seed = def.obstacleSeed) {
     this.def = def;
+    this.closed = def.closed !== false;
+    // A point-to-point course cannot be lapped: it finishes somewhere else.
+    this.laps = def.laps ?? (this.closed ? TUNING.LAPS : 1);
     this.trackWidth = TUNING.TRACK_WIDTH_OVERRIDE ?? def.trackWidth;
-    this.pts = densify(def.centerline, def.samplesPerSegment ?? 14);
+    this.pts = densify(def.centerline, def.samplesPerSegment ?? 14, this.closed);
 
     const n = this.pts.length;
     this.cum = new Array(n + 1);
     this.tan = new Array(n);
     this.segLen = new Array(n);
 
-    // Closed loop: segment i runs from point i to point (i+1) % n.
+    // Segment i runs from point i to point i+1; on a closed course the last
+    // segment wraps back to the first, on an open one there is no such segment.
+    const spans = this.closed ? n : n - 1;
     let acc = 0;
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < spans; i++) {
       this.cum[i] = acc;
       const a = this.pts[i];
       const b = this.pts[(i + 1) % n];
@@ -108,6 +132,13 @@ export class TrackGeometry {
       this.segLen[i] = len;
       this.tan[i] = { x: dx / len, y: dy / len };
       acc += len;
+    }
+    if (!this.closed) {
+      // The final point terminates the last segment rather than starting a new
+      // one, so give it a zero-length entry the binary search can land on.
+      this.segLen[n - 1] = 1e-6;
+      this.tan[n - 1] = this.tan[n - 2] ?? { x: 1, y: 0 };
+      this.cum[n - 1] = acc;
     }
     this.cum[n] = acc;
     this.length = acc;
@@ -148,7 +179,7 @@ export class TrackGeometry {
     let index = 0;
     let groupId = 0;
     for (const o of def.obstacles) {
-      const s = ((o.s % this.length) + this.length) % this.length;
+      const s = this.along(o.s);
       const place = (d: number, r: number, type: Obstacle['type'], gid?: number) => {
         const p = this.pointAt(s);
         const right = { x: -Math.sin(p.heading), y: Math.cos(p.heading) };
@@ -178,10 +209,20 @@ export class TrackGeometry {
     return out;
   }
 
+  /**
+   * Distance s mapped into the course. A closed course wraps, so lap two is lap
+   * one again; an open one clamps, because past the finish there is no more
+   * course to be on.
+   */
+  private along(s: number): number {
+    if (!this.closed) return s < 0 ? 0 : s > this.length ? this.length : s;
+    return ((s % this.length) + this.length) % this.length;
+  }
+
   /** World point and heading at distance s along the centerline. */
   pointAt(s: number): TrackPoint {
     const n = this.pts.length;
-    let d = ((s % this.length) + this.length) % this.length;
+    const d = this.along(s);
 
     // Binary search for the segment containing d.
     let lo = 0;
@@ -247,19 +288,24 @@ export class TrackGeometry {
     };
 
     if (hint >= 0) {
-      for (let k = -WINDOW; k <= WINDOW; k++) consider(((hint + k) % n + n) % n);
+      for (let k = -WINDOW; k <= WINDOW; k++) {
+        const i = hint + k;
+        if (this.closed) consider(((i % n) + n) % n);
+        else if (i >= 0 && i < n - 1) consider(i);
+      }
       // Accept the windowed result only if it is plausibly on the track.
       if (best && bestDistSq < Math.pow(this.trackWidth * 1.6, 2)) return best;
     }
 
     best = null;
     bestDistSq = Infinity;
-    for (let i = 0; i < n; i++) consider(i);
+    const spans = this.closed ? n : n - 1;
+    for (let i = 0; i < spans; i++) consider(i);
     return best!;
   }
 
   obstaclesNear(trackDistance: number): Obstacle[] {
-    const s = ((trackDistance % this.length) + this.length) % this.length;
+    const s = this.along(trackDistance);
     const b = Math.floor(s / BUCKET_SIZE);
     const maxBucket = Math.floor(this.length / BUCKET_SIZE);
     const out: Obstacle[] = [];
@@ -275,9 +321,11 @@ export class TrackGeometry {
   obstaclesInRange(from: number, span: number): Obstacle[] {
     const out: Obstacle[] = [];
     for (const ob of this.obstacles) {
-      let ds = ob.s - (((from % this.length) + this.length) % this.length);
-      if (ds < -this.length / 2) ds += this.length;
-      if (ds > this.length / 2) ds -= this.length;
+      let ds = ob.s - this.along(from);
+      if (this.closed) {
+        if (ds < -this.length / 2) ds += this.length;
+        if (ds > this.length / 2) ds -= this.length;
+      }
       if (ds >= -120 && ds <= span) out.push(ob);
     }
     return out;
@@ -287,7 +335,7 @@ export class TrackGeometry {
   elevationAt(s: number): number {
     const heights = this.def.elevation;
     if (!heights?.length) return 0;
-    const d = ((s % this.length) + this.length) % this.length;
+    const d = this.along(s);
     let lo = 0, hi = this.pts.length - 1;
     while (lo < hi) {
       const mid = (lo + hi + 1) >> 1;
@@ -296,6 +344,11 @@ export class TrackGeometry {
     const samples = this.def.samplesPerSegment ?? 14;
     const u = (lo + (d - this.cum[lo]) / this.segLen[lo]) / samples;
     const i = Math.floor(u), f = u - i;
+    if (!this.closed) {
+      const a = Math.min(i, heights.length - 1);
+      const b = Math.min(i + 1, heights.length - 1);
+      return heights[a] * (1 - f) + heights[b] * f;
+    }
     return heights[i % heights.length] * (1 - f) + heights[(i + 1) % heights.length] * f;
   }
 
@@ -310,7 +363,7 @@ export class TrackGeometry {
   }
 
   sectorIndexFor(trackDistance: number): number {
-    const s = ((trackDistance % this.length) + this.length) % this.length;
+    const s = this.along(trackDistance);
     for (let i = 0; i < this.sectorBoundaries.length; i++) {
       if (s < this.sectorBoundaries[i]) return i;
     }

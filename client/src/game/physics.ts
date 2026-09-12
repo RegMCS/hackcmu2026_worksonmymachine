@@ -237,11 +237,17 @@ export function stepCar(
   car.lateralOffset = proj.d;
 
   // Unwrap s so trackDistance grows monotonically across the start/finish line.
-  const prevWrapped = car.trackDistance % geom.length;
-  let delta = proj.s - prevWrapped;
-  if (delta > geom.length / 2) delta -= geom.length;
-  if (delta < -geom.length / 2) delta += geom.length;
-  car.trackDistance += delta;
+  // An open course has no such line: s is already absolute, and unwrapping it
+  // would read ordinary backtracking as a completed lap.
+  if (geom.closed) {
+    const prevWrapped = car.trackDistance % geom.length;
+    let delta = proj.s - prevWrapped;
+    if (delta > geom.length / 2) delta -= geom.length;
+    if (delta < -geom.length / 2) delta += geom.length;
+    car.trackDistance += delta;
+  } else {
+    car.trackDistance = proj.s;
+  }
   const lap = Math.max(0, Math.floor(car.trackDistance / geom.length));
   if (lap > car.lapCount) car.hitObstacles.clear();
   car.lapCount = lap;
@@ -359,7 +365,7 @@ export function carToRacerState(
     y: car.y,
     heading: car.heading,
     trackDistance: car.trackDistance,
-    lapProgress: finished ? 1 : ((car.trackDistance % geom.length) + geom.length) % geom.length / geom.length,
+    lapProgress: finished ? 1 : Math.min(1, Math.max(0, (geom.closed ? ((car.trackDistance % geom.length) + geom.length) % geom.length : car.trackDistance) / geom.length)),
     isLocalPlayer: true,
     source: 'local',
     finished,

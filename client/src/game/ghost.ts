@@ -31,8 +31,13 @@ export class GhostPlayer {
       const proj = geom.project(p.x, p.y, segment);
       segment = proj.segmentIndex;
       let delta = proj.s - previous;
-      if (delta > geom.length / 2) delta -= geom.length;
-      if (delta < -geom.length / 2) delta += geom.length;
+      // Unwrap a lap rollover into forward progress. An open course never rolls
+      // over, and unwrapping there would turn ordinary backtracking into a
+      // phantom lap.
+      if (geom.closed) {
+        if (delta > geom.length / 2) delta -= geom.length;
+        if (delta < -geom.length / 2) delta += geom.length;
+      }
       distance += delta;
       previous = proj.s;
       this.distances.push(distance);
@@ -75,8 +80,8 @@ export class GhostPlayer {
       x,
       y,
       heading,
-      trackDistance: finished ? this.geom.length * TUNING.LAPS : trackDistance,
-      lapProgress: finished ? 1 : ((trackDistance % this.geom.length) + this.geom.length) % this.geom.length / this.geom.length,
+      trackDistance: finished ? this.geom.length * this.geom.laps : trackDistance,
+      lapProgress: finished ? 1 : Math.min(1, Math.max(0, (this.geom.closed ? ((trackDistance % this.geom.length) + this.geom.length) % this.geom.length : trackDistance) / this.geom.length)),
       isLocalPlayer: false,
       source: 'ghost',
       finished,
