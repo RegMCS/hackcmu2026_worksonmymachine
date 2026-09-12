@@ -27,6 +27,10 @@ export type RunSummary = Omit<Run, 'path'>;
 
 /**
  * The single interface every car on track conforms to, whatever its data source.
+ *
+ * COORDINATES: world space, 2D, view-independent. `x` is east, `y` is south.
+ * A 3D renderer maps y -> z and looks `elevation` up from the track; it must
+ * never write view maths back into this shape.
  * Every HUD component reads ONLY from an array of these. Nothing in the UI may know
  * whether a car is a replayed ghost or a live networked opponent - that boundary is
  * what makes Phase 5 a data-source swap instead of a rewrite.
@@ -47,6 +51,13 @@ export interface RacerState {
   colorIndex: number;
   /** Which car body the racer drives, 1-5. */
   carShape: number;
+  /**
+   * Render-only height above the ground plane, in world units. Physics,
+   * collision and ghost recording ignore this entirely - it exists so a 3D
+   * renderer can lift the car onto sloped terrain without the world model
+   * becoming 3D.
+   */
+  elevation?: number;
 }
 
 /** Track definition. Obstacles are authored in track-relative (s, d) coordinates. */
