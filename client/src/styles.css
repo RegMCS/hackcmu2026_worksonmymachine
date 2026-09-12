@@ -528,3 +528,24 @@ input {
   opacity: 0.75;
 }
 .attribution a { color: inherit; }
+
+/* --- Optional layout: webcam as a corner panel instead of the background ----
+   Toggled with V (body.video-panel). The wheel is drawn into the panel, the
+   hand-fade on the scene is dropped, and the page paints a sky/ground split at
+   the renderer's horizon (15% down) so the 3D world has something behind it. */
+body.video-panel {
+  background: linear-gradient(to bottom, #0d1524 0%, #16233a 15%, #0b1d12 15.2%, #060f09 100%);
+}
+body.video-panel #scrim { display: none; }
+body.video-panel #video {
+  inset: auto;
+  right: 18px;
+  bottom: 18px;
+  width: 320px;
+  height: 240px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  z-index: 4;
+}
+body.video-panel #overlay { z-index: 4; }
