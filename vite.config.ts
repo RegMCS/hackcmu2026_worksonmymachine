@@ -9,7 +9,9 @@ export default defineConfig({
     // Tunnel hostnames (loca.lt, trycloudflare, etc.) fail Vite's DNS-rebinding
     // check unless we allow them. Fine for a LAN / hackathon demo.
     allowedHosts: true,
-    port: 5173,
+    // Honour PORT so parallel worktrees can each run their own dev server;
+    // unset it and this is the usual 5173.
+    port: Number(process.env.PORT) || 5173,
     proxy: {
       '/api': { target: 'http://localhost:8787', changeOrigin: true },
       // The relay shares the API port. `ws: true` is what makes Vite forward the

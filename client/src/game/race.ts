@@ -89,6 +89,13 @@ export class Race {
   pbDelta: number | null = null;
   shake = 0;
   flash = 0;
+  /**
+   * The local player's steering curve, from the sensitivity slider. Mutable so
+   * a change on the results screen applies to the next race without rebuilding
+   * anything. Only ever shapes local input - ghosts and remotes replay recorded
+   * world positions, so nobody else's line moves when this changes.
+   */
+  steerGamma: number = TUNING.STEER_GAMMA;
   savedRunId: string | null = null;
   savedRank: number | null = null;
   /** Resolves once the run has been persisted (or failed to be). */
@@ -186,7 +193,7 @@ export class Race {
 
     // --- Physics ----------------------------------------------------------
     this.stepEvents.length = 0;
-    stepCar(this.car, this.geom, { steer, dt, now: this.time }, this.stepEvents);
+    stepCar(this.car, this.geom, { steer, dt, now: this.time, gamma: this.steerGamma }, this.stepEvents);
     for (const e of this.stepEvents) this.handleStepEvent(e);
 
     this.recorder.capture(this.time, this.car.x, this.car.y, this.car.heading);

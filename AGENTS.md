@@ -93,6 +93,11 @@ scripts/diag/  assertions about physics and geometry
 
 ## Gotchas that have already bitten us
 
+- **The steering sensitivity slider changes the response curve, never the turn
+  rate.** Full lock stays at `FULL_LOCK_DEG` at every setting. Re-map it onto
+  `MAX_TURN_RATE` and the calmest setting puts the return loop out of reach -
+  see the next point. `STEER_GAMMA` is the midpoint of that slider, not a fixed
+  value; `curvature.ts` only checks full lock, so it will not catch a bad curve.
 - **There is no brake**, so a corner tighter than the car's minimum turn radius
   is *impossible*, not just hard. After any track edit run
   `scripts/diag/curvature.ts` and keep the ratio above ~2x. A first version of

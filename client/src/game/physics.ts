@@ -12,8 +12,20 @@ export const TUNING = {
   MAX_TURN_RATE: 34,
   /** Hand rotation, in degrees, that counts as full lock in either direction. */
   FULL_LOCK_DEG: 55,
-  /** Steering response curve. 1 = linear; >1 softens the centre for fine control. */
-  STEER_GAMMA: 1.35,
+  /** Steering response curve. 1 = linear; >1 softens the centre for fine control.
+   *  This is the midpoint of the in-game sensitivity slider, not a fixed value -
+   *  see steerGammaFor(). It has to be well above 1 because the track asks for a
+   *  huge dynamic range: 95% of the lap needs under 5% of full lock, but the
+   *  return loop needs 46% of it. A near-linear curve crams all normal driving
+   *  into the first few degrees of hand rotation, where tracking jitter lives. */
+  STEER_GAMMA: 2.2,
+  /** Ends of the sensitivity slider. Both settings keep full lock at
+   *  FULL_LOCK_DEG - turning sensitivity down softens the centre, it does not
+   *  reduce the maximum turn rate. Capping the turn rate instead would put the
+   *  return loop out of reach, and with no brake an untakeable corner is
+   *  untakeable, not merely hard. */
+  STEER_GAMMA_SHARPEST: 1.3,
+  STEER_GAMMA_SOFTEST: 3.1,
 
   // --- Steering smoothing (one-euro filter) -------------------------------
   //  Minimum smoothing that removes jitter. Over-smoothing adds latency, which is
@@ -114,6 +126,19 @@ export interface StepInput {
   steer: number; // -1..1, already smoothed
   dt: number; // seconds
   now: number; // seconds since race start
+  /** Player's steering curve, from the sensitivity slider. Defaults to
+   *  TUNING.STEER_GAMMA so synthetic drivers and diagnostics need not care. */
+  gamma?: number;
+}
+
+/**
+ * Maps the sensitivity slider (0 = calmest, 1 = twitchiest) onto the response
+ * curve. Lives here rather than in the HUD because it is a gameplay constant
+ * wearing a UI hat, and the two ends have to stay next to the value they bound.
+ */
+export function steerGammaFor(sensitivity: number): number {
+  const t = clamp(sensitivity, 0, 1);
+  return TUNING.STEER_GAMMA_SOFTEST + (TUNING.STEER_GAMMA_SHARPEST - TUNING.STEER_GAMMA_SOFTEST) * t;
 }
 
 export interface StepEvent {
@@ -165,7 +190,8 @@ export function stepCar(
   // --- Steering -----------------------------------------------------------
   const oiled = now < car.oilUntil;
   const rawSteer = clamp(input.steer, -1, 1);
-  const shaped = Math.sign(rawSteer) * Math.pow(Math.abs(rawSteer), TUNING.STEER_GAMMA);
+  const gamma = input.gamma ?? TUNING.STEER_GAMMA;
+  const shaped = Math.sign(rawSteer) * Math.pow(Math.abs(rawSteer), gamma);
   const steer = shaped * (oiled ? TUNING.OIL_STEER_MULT : 1);
 
   car.steerSum += Math.abs(rawSteer);

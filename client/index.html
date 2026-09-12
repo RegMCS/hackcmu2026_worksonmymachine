@@ -93,6 +93,13 @@
         </select>
       </div>
 
+      <div class="picker">
+        <h3>Steering sensitivity</h3>
+        <input type="range" class="sensitivity" min="0" max="100" step="5"
+               aria-label="Steering sensitivity" />
+        <p class="muted sensitivity-label"></p>
+      </div>
+
       <button id="btn-name" class="primary">Continue</button>
     </div>
   </div>
@@ -128,6 +135,12 @@
       <p id="res-like" class="muted"></p>
       <h2>Leaderboard</h2>
       <ol id="res-leaderboard"></ol>
+      <div class="picker">
+        <h3>Steering sensitivity</h3>
+        <input type="range" class="sensitivity" min="0" max="100" step="5"
+               aria-label="Steering sensitivity" />
+        <p class="muted sensitivity-label"></p>
+      </div>
       <div class="row">
         <button id="btn-again" class="primary">Race again <kbd>R</kbd></button>
         <button id="btn-qr" class="ghost">Share</button>
