@@ -45,6 +45,14 @@ GitHub Actions runs exactly this list on pull requests and on pushes to `main`
 (`.github/workflows/ci.yml`), so a missed local run is caught. Node version
 comes from `.nvmrc` in both places — keep the two in step.
 
+**A green merge to `main` deploys itself.** The same workflow SSHes to the box
+and runs `deploy/update.sh` for the commit that just passed. Two things follow:
+a merge is a production change, and a restart drops every connection in flight.
+Deploys already decline while a multiplayer room is open; to stop them for
+longer, `sudo touch /opt/ghostrace/DEPLOY_HOLD` on the box — CI then goes green
+with a warning instead of deploying. Setup and
+the other switches are in `deploy/README.md` section 8.
+
 ## Invariants — do not break these
 
 1. **Steering is the only input.** No throttle, brake or gearshift. This is a

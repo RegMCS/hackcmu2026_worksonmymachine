@@ -136,10 +136,10 @@ API_BASE=https://YOUR-DOMAIN npm run seed
 
 ## 7. Updating a running instance
 
-Once the box is set up, `deploy/update.sh` replaces the sequence in section 3:
+`main` is the deployed branch. Deploy from it and nothing else.
 
 ```bash
-sudo /opt/ghostrace/deploy/update.sh          # or: ... update.sh some-branch
+sudo /opt/ghostrace/deploy/update.sh          # or: ... update.sh main <commit>
 ```
 
 It fetches, reinstalls, rebuilds, restarts, then polls `/api/health` until the
@@ -153,56 +153,124 @@ It also warns when health reports `store: file`, which is how an Atlas source-IP
 rejection actually presents itself - the game plays normally and the runs simply
 stop being shared.
 
-There is no webhook and no auto-deploy on push, deliberately: the box serving
-the demo is the box someone is standing in front of. CI
-(`.github/workflows/ci.yml`) tells you the commit is good; you choose when it
-lands.
+Given a commit as the second argument it deploys exactly that commit. CI passes
+it the SHA it just verified, so two merges landing close together cannot deploy
+the second one's code under the first one's green tick.
 
-## 8. Check it on the demo machine itself
-
-Open the site in the actual browser you will demo with, allow the camera, and
-watch the debug overlay (`D`). If `latency p50` is above 100ms, the webcam is
-almost certainly the bottleneck - see the tuning notes in the root README.
-
-## 8. Updating a running deployment
-
-`main` is the deployed branch. Deploy from it and nothing else.
+**Why the script uses `checkout -B` and not `reset --hard`.** `reset --hard
+FETCH_HEAD` does not rename the branch: it moves whatever branch is checked out
+onto the fetched commit, so a box provisioned against some other branch keeps
+that branch's *name* while silently carrying `main`'s code, and `git status`
+then reassures you about a branch that no longer means anything. If you are
+poking at the box by hand, check what is actually checked out:
 
 ```bash
-ssh root@YOUR-IP 'cd /opt/ghostrace \
-  && sudo -u ghostrace git fetch --depth 1 origin main \
-  && sudo -u ghostrace git reset --hard FETCH_HEAD \
-  && sudo -u ghostrace npm ci && sudo -u ghostrace npm run build \
-  && systemctl restart ghostrace'
+sudo -u ghostrace git -C /opt/ghostrace branch -vv
 ```
 
-Then smoke-test, every time — a build that compiles is not a demo that works:
+Gitignored files - `.env`, `atlas-credentials.env`, and the ~18MB of MediaPipe
+assets under `client/public/mediapipe` - survive a branch switch, so neither the
+secrets nor `npm run fetch-assets` need redoing.
+
+Smoke-test after any manual deploy; a build that compiles is not a demo that
+works:
 
 ```bash
 curl -s https://YOUR-DOMAIN/api/health          # ok:true, and "store"
 curl -s -o /dev/null -w '%{http_code}\n' https://YOUR-DOMAIN/
 ```
 
-**`reset --hard FETCH_HEAD` does not rename the branch.** It moves whatever
-branch is checked out onto the fetched commit, so a box provisioned against some
-other branch keeps that branch's *name* while silently carrying `main`'s code —
-`git status` then reassures you about a branch that no longer means anything.
-Check what is actually checked out before assuming:
+## 8. Auto-deploy from CI (optional)
+
+With this configured, a merge to `main` that passes CI deploys itself. Without
+it, nothing breaks: the deploy job sees no `DEPLOY_HOST` and skips.
+
+**On the box.** The CI job needs a user it can SSH in as, and permission to run
+exactly one command as root:
 
 ```bash
-ssh root@YOUR-IP 'cd /opt/ghostrace && sudo -u ghostrace git branch -vv'
+sudo useradd -m -s /bin/bash deploy
+sudo -u deploy mkdir -p ~deploy/.ssh && sudo -u deploy chmod 700 ~deploy/.ssh
+ssh-keygen -t ed25519 -f /tmp/gh-deploy -N '' -C 'github-actions'
+sudo tee -a ~deploy/.ssh/authorized_keys < /tmp/gh-deploy.pub
+sudo chown deploy:deploy ~deploy/.ssh/authorized_keys
+sudo chmod 600 ~deploy/.ssh/authorized_keys
 ```
 
-If it is not `main`, move it and rebuild:
+Install the update script somewhere **root owns**, and grant sudo to that path
+only:
 
 ```bash
-ssh root@YOUR-IP 'cd /opt/ghostrace \
-  && sudo -u ghostrace git fetch --depth 1 origin main \
-  && sudo -u ghostrace git checkout -B main FETCH_HEAD \
-  && sudo -u ghostrace npm ci && sudo -u ghostrace npm run build \
-  && systemctl restart ghostrace'
+sudo install -m 755 -o root -g root /opt/ghostrace/deploy/update.sh \
+  /usr/local/sbin/ghostrace-update
+
+printf 'deploy ALL=(root) NOPASSWD: /usr/local/sbin/ghostrace-update\n' \
+  | sudo tee /etc/sudoers.d/ghostrace-deploy
+sudo chmod 440 /etc/sudoers.d/ghostrace-deploy
+sudo visudo -c
 ```
 
-Gitignored files — `.env`, `atlas-credentials.env`, and the ~18MB of MediaPipe
-assets under `client/public/mediapipe` — survive a branch switch, so neither the
-secrets nor `npm run fetch-assets` need redoing.
+The copy matters. Granting `NOPASSWD` on `/opt/ghostrace/deploy/update.sh`
+would point sudo at a file inside the tree the deploy itself rewrites, which
+turns "can deploy" into "can run anything as root" the moment someone lands a
+commit editing that script. **The consequence of the copy is that changes to
+`update.sh` do not take effect until you re-run the `install` line above** - the
+script prints its own mtime on every run so the drift is visible in the CI log.
+
+**In GitHub** (Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+|---|---|
+| `DEPLOY_HOST` | the box's hostname or IP |
+| `DEPLOY_USER` | `deploy` |
+| `DEPLOY_SSH_KEY` | contents of `/tmp/gh-deploy` (the **private** key) |
+| `DEPLOY_KNOWN_HOSTS` | output of `ssh-keyscan -t ed25519 YOUR-HOST` |
+
+Then `rm /tmp/gh-deploy*` on the box. `DEPLOY_KNOWN_HOSTS` is not optional
+padding: without a pinned host key the job would have to accept whatever answers
+on port 22, and it is handing over a key that can restart the service.
+
+Fork PRs never receive these - GitHub withholds secrets from fork workflows, and
+the deploy job only runs on `push` to `main` anyway.
+
+### Stopping a deploy landing at a bad moment
+
+```bash
+echo 'demo in progress - ethan' | sudo tee /opt/ghostrace/DEPLOY_HOLD
+```
+
+Any deploy while that file exists declines with exit 75; CI goes green with a
+warning that production is behind `main`, rather than red. Delete the file to
+resume, then deploy the backlog with `sudo ghostrace-update`.
+
+A deploy also declines while any multiplayer room is open — `/api/health`
+reports the count, so this is an exact answer to "is anyone mid-race", not a
+guess. It is on by default and clears itself when the last player leaves; set
+`SKIP_IF_BUSY=0` to turn it off.
+
+For a wider unattended window, set a quiet period in
+`/etc/default/ghostrace-deploy`:
+
+```bash
+QUIET_MINUTES=15
+```
+
+A deploy then declines if anyone finished a run in the last 15 minutes. This
+catches solo play, where there is no room to count. It defaults to `0` (off), because a busy box would
+otherwise never deploy at all. Every failure of the check - endpoint down,
+unparseable response, no runs yet - is treated as "quiet", so a broken health
+endpoint cannot wedge deploys permanently.
+
+`FORCE=1 sudo ghostrace-update` overrides both.
+
+### A human gate instead
+
+The deploy job runs in a `production` environment. Adding a required reviewer to
+that environment (Settings → Environments → production) makes every deploy wait
+for an approval click, with no change to the workflow.
+
+## 9. Check it on the demo machine itself
+
+Open the site in the actual browser you will demo with, allow the camera, and
+watch the debug overlay (`D`). If `latency p50` is above 100ms, the webcam is
+almost certainly the bottleneck - see the tuning notes in the root README.
