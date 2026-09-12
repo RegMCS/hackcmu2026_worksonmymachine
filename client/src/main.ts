@@ -101,7 +101,7 @@ async function boot(): Promise<void> {
   buildCarPicker();
 
   race = new Race({
-    trackId: TRACK_ID,
+    trackId: geom.def.id,
     playerName: playerName || 'Anon',
     geom,
     colorIndex: carColor,
@@ -182,7 +182,7 @@ function commentaryContext() {
     playerName: race?.playerName ?? 'Driver',
     position: me?.position ?? 1,
     fieldSize: race?.standings.length || 1,
-    lapProgress: race ? race.car.trackDistance / race.geom.length : 0,
+    lapProgress: race ? (race.car.trackDistance % race.geom.length) / race.geom.length : 0,
     rivalName: race?.rivalName ?? undefined,
     gap: me?.gapAhead ?? undefined,
     collisions: race?.car.collisionCount ?? 0,
@@ -190,7 +190,7 @@ function commentaryContext() {
 }
 
 async function refreshLeaderboard(): Promise<void> {
-  leaderboard = await api.leaderboard(TRACK_ID, 25);
+  leaderboard = await api.leaderboard(race?.geom.def.id ?? 'buggy-3lap-v1', 25);
 }
 
 // --- Setup flow ------------------------------------------------------------
