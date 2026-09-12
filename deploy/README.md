@@ -23,15 +23,52 @@ proxies the API and serves static files; all the real work happens in the
 player's browser.
 
 ```bash
-sudo apt update && sudo apt install -y nodejs npm caddy git
-sudo useradd -r -s /bin/false -d /opt/ghostrace ghostrace
-sudo mkdir -p /opt/ghostrace && sudo chown ghostrace /opt/ghostrace
+sudo apt update && sudo apt install -y nodejs npm git curl
+
+# Caddy from its own repo: the Ubuntu build lags several minor versions, and TLS
+# issuance is the one component worth having current.
+curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key \
+  | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt \
+  | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install -y caddy
+
+sudo useradd -r -m -d /opt/ghostrace -s /usr/sbin/nologin ghostrace
+```
+
+**Open the firewall.** Vultr images ship with `ufw` active and only port 22 open.
+Caddy will start happily and still be unreachable, and Let's Encrypt will never
+validate, because the HTTP-01 challenge needs port 80 specifically:
+
+```bash
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw reload
+```
+
+**Harden SSH** once your key works. Note the drop-in must sort *before*
+cloud-init's, because sshd uses first-match-wins - a `99-*.conf` is silently
+overridden by `50-cloud-init.conf`:
+
+```bash
+printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin prohibit-password\n' \
+  | sudo tee /etc/ssh/sshd_config.d/01-hardening.conf
+sudo sed -i 's/^[[:space:]]*PasswordAuthentication.*/#/' /etc/ssh/sshd_config.d/50-cloud-init.conf
+sudo sshd -t && sudo systemctl restart ssh
+sudo sshd -T | grep -i passwordauthentication   # must say "no"
 ```
 
 ## 3. Application
 
+`useradd -m` seeds skeleton dotfiles, so a plain `git clone` into the home
+directory refuses. Initialise in place instead:
+
 ```bash
-git clone <your-repo> /opt/ghostrace && cd /opt/ghostrace
+cd /opt/ghostrace
+sudo -u ghostrace git init
+sudo -u ghostrace git remote add origin <your-repo>
+sudo -u ghostrace git fetch --depth 1 origin ghostrace
+sudo -u ghostrace git checkout -B ghostrace FETCH_HEAD
 npm ci
 npm run fetch-assets      # self-hosts the MediaPipe wasm + model
 npm run build
@@ -55,7 +92,21 @@ sudo systemctl reload caddy
 
 Confirm: `curl -I https://YOUR-DOMAIN/api/health`
 
-## 5. Seed the field
+## 5. Atlas IP access list
+
+Atlas rejects unlisted source IPs during the TLS handshake, so the failure looks
+like a cryptic `SSL alert number 80` rather than an auth error. Add the Vultr
+instance's public IP under **Atlas → Network Access**, then:
+
+```bash
+sudo systemctl restart ghostrace
+curl -s https://YOUR-DOMAIN/api/health   # "store" must say "mongo", not "file"
+```
+
+Until that is done the server falls back to the local file store: the game plays
+normally, but runs live on one box only.
+
+## 6. Seed the field
 
 Matchmaking needs opponents before the first player of the day arrives.
 
@@ -63,7 +114,7 @@ Matchmaking needs opponents before the first player of the day arrives.
 API_BASE=https://YOUR-DOMAIN npm run seed
 ```
 
-## 6. Check it on the demo machine itself
+## 7. Check it on the demo machine itself
 
 Open the site in the actual browser you will demo with, allow the camera, and
 watch the debug overlay (`D`). If `latency p50` is above 100ms, the webcam is

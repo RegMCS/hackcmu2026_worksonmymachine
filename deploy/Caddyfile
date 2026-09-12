@@ -20,9 +20,10 @@ ghostrace.example.com {
 
 	# Everything, API included, is served same-origin, so there is no CORS.
 	reverse_proxy localhost:8787
-
-	log {
-		output file /var/log/caddy/ghostrace.log
-		format console
-	}
 }
+
+# Deliberately no `log { output file ... }` block: Caddy's systemd unit sandboxes
+# the filesystem and cannot write to /var/log/caddy, which makes the service fail
+# to start with a bare "permission denied". Caddy logs to journald by default,
+# which is where you would look anyway:
+#   journalctl -u caddy -f
