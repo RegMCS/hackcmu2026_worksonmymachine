@@ -134,7 +134,7 @@ other three.
 
 **You own:** `client/index.html`, `client/src/styles.css`, `client/src/hud/**`,
 `client/src/audio/**`, `deploy/**`, `vite.config.ts`, `package.json`, and all
-docs (`README.md`, `AGENTS.md`, `TODO.md`, `INTEGRATION-PLAN.md`).
+docs (`README.md`, `AGENTS.md`, `INTEGRATION-PLAN.md`).
 
 **You are the sole owner of `package.json`.** The other three will ask you to add
 dependencies — Agent A needs `three` and `@types/three`, Agent B needs `ws` and

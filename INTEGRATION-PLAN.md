@@ -117,7 +117,7 @@ hills changing speed would need a throttle model we do not have.
 - **4.4** Results screen for multiplayer finishing order
 - **4.5** Reconcile `package.json` (aden is on Vite 6 / Node `--env-file`; main on Vite 7 / dotenv + Express)
 - **4.6** Keep deploy green: redeploy script, Caddy WS upgrade, smoke test after each merge
-- **4.7** Update `README.md`, `AGENTS.md`, `TODO.md`
+- **4.7** Update `README.md` and `AGENTS.md`
 - **4.8** Attribution: buggy.json is OSM **ODbL** — must be credited
 
 ### 5. Cross-cutting
