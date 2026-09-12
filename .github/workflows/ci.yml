@@ -18,13 +18,13 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # First, and before installing anything: the repo is public, so a
       # committed key is the one failure that cannot be undone by a revert.
       - run: node scripts/check-secrets.mjs
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -35,7 +35,7 @@ jobs:
       # it never changes under a given key. fetch-assets skips the download when
       # the file is already there and only copies the wasm out of node_modules.
       - name: Cache MediaPipe hand model
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: client/public/models/hand_landmarker.task
           key: mediapipe-model-${{ hashFiles('scripts/fetch-mediapipe-assets.mjs') }}
