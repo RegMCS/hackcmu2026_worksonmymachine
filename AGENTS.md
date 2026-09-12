@@ -80,6 +80,11 @@ scripts/diag/  assertions about physics and geometry
   whole output budget. `minimal` is what we ship.
 - **The `hidden` attribute loses to an explicit `display`.** Any element with
   `display:` in CSS needs a matching `[hidden] { display: none }` rule.
+- **`git reset --hard FETCH_HEAD` does not rename the branch.** It moves the
+  checked-out branch onto the fetched commit, so a box provisioned from one
+  branch keeps that name while carrying another branch's code. The live box sat
+  on a branch called `ghostrace` for exactly this reason. `main` is the deployed
+  branch; verify with `git branch -vv` rather than trusting the deploy command.
 - **`sshd` is first-match-wins**, so a hardening drop-in must sort *before*
   `50-cloud-init.conf`, not after.
 - **Caddy's systemd unit sandboxes the filesystem** and cannot write

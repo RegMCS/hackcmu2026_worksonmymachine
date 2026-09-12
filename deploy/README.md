@@ -67,8 +67,8 @@ directory refuses. Initialise in place instead:
 cd /opt/ghostrace
 sudo -u ghostrace git init
 sudo -u ghostrace git remote add origin <your-repo>
-sudo -u ghostrace git fetch --depth 1 origin ghostrace
-sudo -u ghostrace git checkout -B ghostrace FETCH_HEAD
+sudo -u ghostrace git fetch --depth 1 origin main
+sudo -u ghostrace git checkout -B main FETCH_HEAD
 npm ci
 npm run fetch-assets      # self-hosts the MediaPipe wasm + model
 npm run build
@@ -119,3 +119,46 @@ API_BASE=https://YOUR-DOMAIN npm run seed
 Open the site in the actual browser you will demo with, allow the camera, and
 watch the debug overlay (`D`). If `latency p50` is above 100ms, the webcam is
 almost certainly the bottleneck - see the tuning notes in the root README.
+
+## 8. Updating a running deployment
+
+`main` is the deployed branch. Deploy from it and nothing else.
+
+```bash
+ssh root@YOUR-IP 'cd /opt/ghostrace \
+  && sudo -u ghostrace git fetch --depth 1 origin main \
+  && sudo -u ghostrace git reset --hard FETCH_HEAD \
+  && sudo -u ghostrace npm ci && sudo -u ghostrace npm run build \
+  && systemctl restart ghostrace'
+```
+
+Then smoke-test, every time — a build that compiles is not a demo that works:
+
+```bash
+curl -s https://YOUR-DOMAIN/api/health          # ok:true, and "store"
+curl -s -o /dev/null -w '%{http_code}\n' https://YOUR-DOMAIN/
+```
+
+**`reset --hard FETCH_HEAD` does not rename the branch.** It moves whatever
+branch is checked out onto the fetched commit, so a box provisioned against some
+other branch keeps that branch's *name* while silently carrying `main`'s code —
+`git status` then reassures you about a branch that no longer means anything.
+Check what is actually checked out before assuming:
+
+```bash
+ssh root@YOUR-IP 'cd /opt/ghostrace && sudo -u ghostrace git branch -vv'
+```
+
+If it is not `main`, move it and rebuild:
+
+```bash
+ssh root@YOUR-IP 'cd /opt/ghostrace \
+  && sudo -u ghostrace git fetch --depth 1 origin main \
+  && sudo -u ghostrace git checkout -B main FETCH_HEAD \
+  && sudo -u ghostrace npm ci && sudo -u ghostrace npm run build \
+  && systemctl restart ghostrace'
+```
+
+Gitignored files — `.env`, `atlas-credentials.env`, and the ~18MB of MediaPipe
+assets under `client/public/mediapipe` — survive a branch switch, so neither the
+secrets nor `npm run fetch-assets` need redoing.
