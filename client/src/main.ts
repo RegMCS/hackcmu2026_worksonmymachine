@@ -18,6 +18,7 @@ import {
 } from './render/carSprites';
 import { Hud, renderLeaderboard, escapeHtml } from './hud/hud';
 import { describeStyle, findRivalRun, nearestNeighbour, renderSectorBars, rivalLine } from './hud/results';
+import { buildPersonaPicker } from './hud/personaPicker';
 import { Commentator } from './audio/commentary';
 import { Sfx } from './audio/sfx';
 import { unlockAudio } from './audio/context';
@@ -99,6 +100,10 @@ async function boot(): Promise<void> {
 
   spritesLoaded = await preloadCarSprites();
   buildCarPicker();
+  buildPersonaPicker(({ persona, voiceId }) => {
+    commentator.persona = persona;
+    commentator.voiceId = voiceId;
+  });
 
   race = new Race({
     trackId: geom.def.id,

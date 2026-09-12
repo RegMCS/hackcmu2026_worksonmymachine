@@ -6,6 +6,13 @@ export default defineConfig({
   build: { outDir: '../dist/client', emptyOutDir: true, target: 'es2022' },
   server: {
     port: 5173,
-    proxy: { '/api': { target: 'http://localhost:8787', changeOrigin: true } },
+    proxy: {
+      '/api': { target: 'http://localhost:8787', changeOrigin: true },
+      // The relay shares the API port. `ws: true` is what makes Vite forward the
+      // HTTP Upgrade rather than answering it as a normal request - without it
+      // the socket fails to connect in dev only, which reads as a broken relay.
+      // Path must track WS_PATH in shared/net.ts.
+      '/ws': { target: 'http://localhost:8787', ws: true, changeOrigin: true },
+    },
   },
 });
