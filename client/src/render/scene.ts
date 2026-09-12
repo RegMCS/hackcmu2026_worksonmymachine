@@ -101,10 +101,7 @@ export class SceneRenderer {
     // Shadow maps are the first thing to cut for latency, so they never went in.
     this.renderer.shadowMap.enabled = false;
 
-    // Fade toward the bottom of the viewport so the player's hands stay visible.
-    const mask = 'linear-gradient(to bottom, #000 62%, transparent 90%)';
-    canvas.style.setProperty('mask-image', mask);
-    canvas.style.setProperty('-webkit-mask-image', mask);
+    this.setHandsFade(true);
 
     this.camera = new THREE.PerspectiveCamera(60, 1, CAMERA.NEAR, CAMERA.DRAW_DISTANCE * 1.2);
     this.scene.fog = new THREE.Fog(FOG, CAMERA.DRAW_DISTANCE * 0.45, CAMERA.DRAW_DISTANCE * 1.05);
@@ -113,6 +110,17 @@ export class SceneRenderer {
     const sun = new THREE.DirectionalLight(0xffffff, 1.4);
     sun.position.set(400, 1000, 300);
     this.scene.add(hemi, sun);
+  }
+
+  /**
+   * Fades the scene toward the bottom of the viewport so the player's real hands
+   * stay visible through it when the webcam is the full-screen background. Off
+   * when the webcam lives in a corner panel and nothing is behind the scene.
+   */
+  setHandsFade(on: boolean): void {
+    const mask = on ? 'linear-gradient(to bottom, #000 62%, transparent 90%)' : 'none';
+    this.renderer.domElement.style.setProperty('mask-image', mask);
+    this.renderer.domElement.style.setProperty('-webkit-mask-image', mask);
   }
 
   resize(w: number, h: number, dpr: number): void {

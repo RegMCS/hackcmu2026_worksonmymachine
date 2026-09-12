@@ -71,7 +71,35 @@ let carColor = Number(localStorage.getItem('ghostrace.carColor') ?? '0');
 let carShape = Number(localStorage.getItem('ghostrace.carShape') ?? '1');
 let spritesLoaded = 0;
 let sfxOn = localStorage.getItem('ghostrace.sfx') !== 'off';
+/** Webcam as a corner panel (default) or as the full-screen background. Toggle with V. */
+let videoPanel = localStorage.getItem('ghostrace.videoPanel') !== 'off';
 let lastCountdownPip = -1;
+
+function applyVideoLayout(): void {
+  document.body.classList.toggle('video-panel', videoPanel);
+  scene?.setHandsFade(!videoPanel);
+}
+
+/**
+ * Draws the wheel over the video wherever the video is. In panel mode the
+ * overlay is translated and clipped to the panel's rectangle, and drawWheel's
+ * cover-fit mapping then matches the panel's own object-fit: cover crop.
+ */
+function drawWheelOverVideo(input: Parameters<OverlayRenderer['drawWheel']>[0], w: number, h: number): void {
+  if (!videoPanel) {
+    overlay.drawWheel(input, w, h);
+    return;
+  }
+  const r = video.getBoundingClientRect();
+  const ctx = overlayCanvas.getContext('2d')!;
+  ctx.save();
+  ctx.translate(r.left, r.top);
+  ctx.beginPath();
+  ctx.rect(0, 0, r.width, r.height);
+  ctx.clip();
+  overlay.drawWheel(input, r.width, r.height);
+  ctx.restore();
+}
 
 // --- Canvas sizing ---------------------------------------------------------
 function resize(): void {
@@ -91,6 +119,7 @@ async function boot(): Promise<void> {
   const geom = await loadTrack(`/tracks/${TRACK_ID}.json`);
   scene = new SceneRenderer(gameCanvas);
   scene.setTrack(geom, elevationFromDef(geom.def, geom.length));
+  applyVideoLayout();
   overlay = new OverlayRenderer(overlayCanvas.getContext('2d')!);
   minimap = new Minimap(minimapCanvas.getContext('2d')!, geom, minimapCanvas.width, minimapCanvas.height);
   resize();
@@ -382,7 +411,7 @@ function updateCalibration(frame: TrackingFrame | null, dt: number): void {
   const h = window.innerHeight;
   overlay.clear(w, h);
   wheelOpacity += (((frame?.handCount ?? 0) >= 2 ? 1 : 0) - wheelOpacity) * Math.min(1, dt * 8);
-  overlay.drawWheel(
+  drawWheelOverVideo(
     { left: frame?.left ?? null, right: frame?.right ?? null, opacity: wheelOpacity, videoW: video.videoWidth, videoH: video.videoHeight, oiled: false },
     w, h,
   );
@@ -417,7 +446,7 @@ function renderRace(dt: number): void {
   const target = mode === 'hands' && steering.handsVisible ? 1 : 0;
   wheelOpacity += (target - wheelOpacity) * Math.min(1, dt * 6);
   if (mode === 'hands') {
-    overlay.drawWheel(
+    drawWheelOverVideo(
       { left: frame?.left ?? null, right: frame?.right ?? null, opacity: wheelOpacity, videoW: video.videoWidth, videoH: video.videoHeight, oiled: race.oiled },
       w, h,
     );
@@ -538,6 +567,11 @@ window.addEventListener('keydown', (e) => {
   }
   // One-click full reset. Non-negotiable for repeated demos.
   if ((e.key === 'r' || e.key === 'R') && appPhase !== 'setup') restart();
+  if (e.key === 'v' || e.key === 'V') {
+    videoPanel = !videoPanel;
+    localStorage.setItem('ghostrace.videoPanel', videoPanel ? 'on' : 'off');
+    applyVideoLayout();
+  }
   if (e.key === 'm' || e.key === 'M') {
     sfxOn = !sfxOn;
     sfx.setEnabled(sfxOn);
@@ -560,7 +594,7 @@ function updateDebug(): void {
     `inference  ${tracker ? tracker.inferenceMs.toFixed(1) : '--'} ms`,
     `render     ${scene ? `${scene.stats.renderMs.toFixed(1)} ms submit, ${scene.stats.calls} draw calls, ${scene.stats.triangles} tris` : '--'}`,
     `steer      raw ${steering.raw.toFixed(3)}  smooth ${steering.value.toFixed(3)}`,
-    `mode       ${mode}${steering.calibrated ? ' (calibrated)' : ''}`,
+    `mode       ${mode}${steering.calibrated ? ' (calibrated)' : ''}  video ${videoPanel ? 'panel' : 'fullscreen'} (V)`,
     race ? `race       ${race.phase} t=${race.time.toFixed(2)} s=${race.car.trackDistance.toFixed(0)}/${race.geom.length.toFixed(0)}` : '',
     race ? `penalty    speed x${(race.car.collisionPenalty * (race.car.offTrack ? TUNING.OFF_TRACK_SPEED_FACTOR : 1)).toFixed(2)}${race.oiled ? ' OILED' : ''}` : '',
     `audio      sfx ${sfxOn ? 'on' : 'off'} (M)  ${commentator.phraseCount} phrases`,
