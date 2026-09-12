@@ -57,6 +57,12 @@ app.get('/api/ghosts', asyncRoute(async (req, res) => {
   res.json(await store.topWithPaths(trackId, limit));
 }));
 
+/** The most recent real run, raced alongside the top ghosts by default. */
+app.get('/api/recent', asyncRoute(async (req, res) => {
+  const trackId = String(req.query.trackId ?? 'circuit-01');
+  res.json(await store.mostRecent(trackId));
+}));
+
 app.get('/api/runs/:id', asyncRoute(async (req, res) => {
   const run = await store.get(String(req.params.id));
   if (!run) {

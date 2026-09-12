@@ -113,11 +113,19 @@ export class Race {
 
   /** Loads the default grid: the top ghosts plus the player's own best. */
   async loadGrid(): Promise<void> {
-    const [top, best] = await Promise.all([
+    const [top, best, recent] = await Promise.all([
       api.topGhosts(this.opts.trackId, 3),
       api.personalBest(this.opts.trackId, this.opts.playerName),
+      api.mostRecent(this.opts.trackId),
     ]);
-    this.defaultGhosts = top.map((r, i) => {
+
+    // Top three plus the most recent run - so the person who just handed over
+    // the chair is on the grid, which is most of the fun of a queue of judges.
+    const grid = [...top];
+    if (recent?.path?.length && !grid.some((r) => String(r._id) === String(recent._id))) {
+      grid.push(recent);
+    }
+    this.defaultGhosts = grid.map((r, i) => {
       const livery = ghostLivery(this.opts.colorIndex, i);
       return new GhostPlayer(r, this.geom, livery.colorIndex, livery.carShape);
     });

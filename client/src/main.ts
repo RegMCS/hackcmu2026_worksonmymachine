@@ -524,6 +524,9 @@ $('btn-qr').addEventListener('click', async () => {
   const holder = $('qr-code');
   holder.innerHTML = '';
   holder.appendChild(canvas);
+
+  await refreshLeaderboard();
+  renderLeaderboard($<HTMLOListElement>('qr-leaderboard'), leaderboard, race?.savedRunId ?? null);
 });
 $('btn-qr-close').addEventListener('click', () => {
   screens.qr.hidden = true;

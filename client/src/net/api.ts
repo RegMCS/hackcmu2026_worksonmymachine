@@ -48,6 +48,8 @@ export const api = {
   topGhosts: (trackId: string, limit = 3) =>
     call<Run[]>(`/api/ghosts?trackId=${encodeURIComponent(trackId)}&limit=${limit}`).then((r) => r ?? []),
 
+  mostRecent: (trackId: string) => call<Run | null>(`/api/recent?trackId=${encodeURIComponent(trackId)}`),
+
   personalBest: (trackId: string, playerName: string) =>
     call<RunSummary | null>(
       `/api/best?trackId=${encodeURIComponent(trackId)}&playerName=${encodeURIComponent(playerName)}`,

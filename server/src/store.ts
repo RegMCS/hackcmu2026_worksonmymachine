@@ -20,6 +20,7 @@ export interface RunStore {
   insert(run: Run): Promise<string>;
   matchmake(trackId: string, projectedTime: number, limit: number, excludeName?: string): Promise<Run[]>;
   bestFor(trackId: string, playerName: string): Promise<RunSummary | null>;
+  mostRecent(trackId: string): Promise<Run | null>;
   reset(trackId: string, keepSynthetic: boolean): Promise<number>;
   count(trackId: string): Promise<number>;
   close(): Promise<void>;
@@ -121,6 +122,15 @@ export class MongoStore implements RunStore {
     return (r[0] as unknown as RunSummary) ?? null;
   }
 
+  async mostRecent(trackId: string): Promise<Run | null> {
+    const r = await this.runs
+      .find({ trackId, synthetic: { $ne: true } })
+      .sort({ createdAt: -1 })
+      .limit(1)
+      .toArray();
+    return (r[0] as Run) ?? null;
+  }
+
   async reset(trackId: string, keepSynthetic: boolean): Promise<number> {
     const filter: any = { trackId };
     if (keepSynthetic) filter.synthetic = { $ne: true };
@@ -220,6 +230,12 @@ export class FileStore implements RunStore {
       .filter((x) => x.trackId === trackId && x.playerName === playerName)
       .sort((a, b) => a.totalTime - b.totalTime)[0];
     return r ? stripPath(r) : null;
+  }
+
+  async mostRecent(trackId: string): Promise<Run | null> {
+    await this.ensure();
+    const real = this.runs.filter((r) => r.trackId === trackId && !r.synthetic);
+    return real.length ? real[real.length - 1] : null;
   }
 
   async reset(trackId: string, keepSynthetic: boolean): Promise<number> {

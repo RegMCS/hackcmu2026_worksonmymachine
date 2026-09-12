@@ -462,3 +462,14 @@ input {
   color: var(--text);
   font-weight: 600;
 }
+
+/* The QR join screen doubles as the between-players leaderboard, so a queue can
+   see where they stand while the next person scans in. */
+.qr-card { text-align: center; }
+.qr-card ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; text-align: left; }
+.qr-card ol li {
+  display: grid; grid-template-columns: 24px 1fr auto; gap: 8px;
+  padding: 7px 10px; border-radius: 8px; font-size: 13px;
+  background: rgba(255,255,255,0.05); font-variant-numeric: tabular-nums;
+}
+.qr-card ol li.me { background: rgba(56,189,248,0.2); border: 1px solid rgba(56,189,248,0.45); }
