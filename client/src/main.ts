@@ -6,7 +6,7 @@ import { TUNING } from './game/physics';
 import { HandTracker, startCamera, type TrackingFrame } from './tracking/hands';
 import { Calibrator, SteeringController } from './tracking/steering';
 import { SceneRenderer } from './render/scene';
-import { demoHills, elevationFromDef } from './render/elevation';
+import { demoHills } from './render/elevation';
 import { OverlayRenderer } from './render/overlay';
 import { Minimap } from './render/minimap';
 import {
@@ -119,7 +119,7 @@ window.addEventListener('resize', resize);
 async function boot(): Promise<void> {
   const geom = await loadTrack(`/tracks/${TRACK_ID}.json`);
   scene = new SceneRenderer(gameCanvas);
-  scene.setTrack(geom, elevationFromDef(geom.def, geom.length));
+  scene.setTrack(geom, (s) => geom.elevationAt(s));
   applyVideoLayout();
   overlay = new OverlayRenderer(overlayCanvas.getContext('2d')!);
   minimap = new Minimap(minimapCanvas.getContext('2d')!, geom, minimapCanvas.width, minimapCanvas.height);
@@ -191,9 +191,11 @@ async function boot(): Promise<void> {
       clearHands() {
         simulatedFrame = null;
       },
-      /** Preview the 3D elevation path with synthetic hills (0 restores the track's own data). */
-      hills(amplitude = 40) {
-        if (race && scene) scene.setTrack(race.geom, amplitude ? demoHills(race.geom.length, amplitude) : elevationFromDef(race.geom.def, race.geom.length));
+      /** Exaggerated synthetic hills in metres, for eyeballing the elevation path; 0 restores the surveyed data. */
+      hills(amplitude = 8) {
+        if (!race || !scene) return;
+        const geom = race.geom;
+        scene.setTrack(geom, amplitude ? demoHills(geom.length, amplitude) : (s) => geom.elevationAt(s));
       },
       /** Jump the car to a point on the track, for testing without driving a lap. */
       seek(distance: number) {
