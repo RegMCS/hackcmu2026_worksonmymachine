@@ -37,6 +37,10 @@ npm run phrases          # pre-generates the commentary audio (needs an ElevenLa
 Copy `.env.example` to `.env`. Everything is optional - with no keys at all the
 game is fully playable, just without persistence or commentary.
 
+The server loads `.env`, then `atlas-credentials.env` (where Atlas onboarding
+writes its connection string), then `.env.local`. Real environment variables win
+over all of them. All three are gitignored.
+
 | Key | Effect if missing |
 |---|---|
 | `MONGODB_URI` | Falls back to a local JSON file store |

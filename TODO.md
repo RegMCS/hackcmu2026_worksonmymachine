@@ -8,6 +8,9 @@ camera.
 
 ## Blocking, do first
 
+> Atlas is now connected (item 4 below is done). The remaining blockers are all
+> infrastructure and playtesting.
+
 ### 1. Domain name and DNS
 Without a domain there is no HTTPS; without HTTPS `getUserMedia` won't run and
 there is no game. Let's Encrypt won't issue for a bare IP, and self-signed certs
@@ -40,10 +43,16 @@ radius is impossible, not just hard — that bug was in the first track I built.
 
 ## Before the event
 
-### 4. MongoDB Atlas
-Create a free M0 cluster, allow network access, put the URI in `.env` as
-`MONGODB_URI`. Without it the server falls back to a local JSON file, which works
-fine but won't persist across devices — so judges won't race each other's ghosts.
+### 4. ~~MongoDB Atlas~~ — DONE
+Connected and verified end to end: aggregation matchmaking, ObjectId lookups, all
+three indexes, and a full race saved with sector splits and ghost path.
+
+Measured: **39.4 KB per run, so ~13,300 runs fit in the 512MB free tier.** Storage
+is not a constraint.
+
+One thing left for you: Atlas network access. If the cluster is currently set to
+allow `0.0.0.0/0` for convenience, restrict it to the Vultr instance's IP once
+that box exists.
 
 ### 5. Seed the deployed instance
 ```bash

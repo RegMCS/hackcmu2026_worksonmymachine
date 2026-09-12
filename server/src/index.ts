@@ -1,4 +1,5 @@
-import 'dotenv/config';
+// Must come first: modules below read process.env at module scope.
+import { loadedEnvFiles } from './env.js';
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -186,6 +187,7 @@ createStore().then((s) => {
   store = s;
   app.listen(PORT, () => {
     const ai = aiStatus();
+    console.log(`[ghostrace] env: ${loadedEnvFiles.join(', ') || 'none'}`);
     console.log(`[ghostrace] listening on :${PORT}  store=${s.kind}  gemini=${ai.gemini}  elevenlabs=${ai.elevenlabs}`);
   });
 });

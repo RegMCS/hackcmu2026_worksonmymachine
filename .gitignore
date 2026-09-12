@@ -2,6 +2,9 @@ node_modules/
 dist/
 .env
 .env.local
+# Atlas onboarding writes credentials here; never commit it.
+atlas-credentials.env
+*credentials*.env
 client/public/models/*.task
 client/public/mediapipe/
 .DS_Store
