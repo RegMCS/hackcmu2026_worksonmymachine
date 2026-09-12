@@ -1,0 +1,46 @@
+# Runs the pre-push checklist from AGENTS.md so it stops depending on anyone
+# remembering it. The diag scripts matter more than they look: a track whose
+# corners are tighter than the car's turn radius is impossible rather than hard,
+# and the symptom is drivers quietly bleeding seconds off-track, not a crash.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # First, and before installing anything: the repo is public, so a
+      # committed key is the one failure that cannot be undone by a revert.
+      - run: node scripts/check-secrets.mjs
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # The hand landmarker is ~9MB from a Google CDN at a pinned revision, so
+      # it never changes under a given key. fetch-assets skips the download when
+      # the file is already there and only copies the wasm out of node_modules.
+      - name: Cache MediaPipe hand model
+        uses: actions/cache@v4
+        with:
+          path: client/public/models/hand_landmarker.task
+          key: mediapipe-model-${{ hashFiles('scripts/fetch-mediapipe-assets.mjs') }}
+
+      - run: npm run fetch-assets
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run diag

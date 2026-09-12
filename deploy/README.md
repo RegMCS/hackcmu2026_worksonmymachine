@@ -23,7 +23,15 @@ proxies the API and serves static files; all the real work happens in the
 player's browser.
 
 ```bash
-sudo apt update && sudo apt install -y nodejs npm git curl
+sudo apt update && sudo apt install -y git curl
+
+# Node from NodeSource, not from apt. Ubuntu LTS ships a Node several major
+# versions behind what package.json expects, and the mismatch does not surface
+# until `npm run build` - the production build is the only place missing `.js`
+# extensions in relative ESM imports actually fail. Match .nvmrc.
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt install -y nodejs
+node -v    # must satisfy the "engines" field in package.json
 
 # Caddy from its own repo: the Ubuntu build lags several minor versions, and TLS
 # issuance is the one component worth having current.
@@ -114,7 +122,31 @@ Matchmaking needs opponents before the first player of the day arrives.
 API_BASE=https://YOUR-DOMAIN npm run seed
 ```
 
-## 7. Check it on the demo machine itself
+## 7. Updating a running instance
+
+Once the box is set up, `deploy/update.sh` replaces the sequence in section 3:
+
+```bash
+sudo /opt/ghostrace/deploy/update.sh          # or: ... update.sh some-branch
+```
+
+It fetches, reinstalls, rebuilds, restarts, then polls `/api/health` until the
+server actually answers - `systemctl restart` returns as soon as the process is
+spawned, which is well before Express is listening or Mongo has shaken hands. A
+build failure aborts before the restart, so a bad commit is a failed script
+rather than a dark site; a failed health check rolls back to the previous commit
+and prints the journal.
+
+It also warns when health reports `store: file`, which is how an Atlas source-IP
+rejection actually presents itself - the game plays normally and the runs simply
+stop being shared.
+
+There is no webhook and no auto-deploy on push, deliberately: the box serving
+the demo is the box someone is standing in front of. CI
+(`.github/workflows/ci.yml`) tells you the commit is good; you choose when it
+lands.
+
+## 8. Check it on the demo machine itself
 
 Open the site in the actual browser you will demo with, allow the camera, and
 watch the debug overlay (`D`). If `latency p50` is above 100ms, the webcam is
