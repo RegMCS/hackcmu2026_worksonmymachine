@@ -190,7 +190,7 @@ app.post('/api/tts', asyncRoute(async (req, res) => {
  * its own tuning so the server never has to import the physics module.
  */
 app.post('/api/course', asyncRoute(async (req, res) => {
-  const { url, speed, targetLapSeconds, trackWidth } = req.body ?? {};
+  const { url, speed, targetLapSeconds } = req.body ?? {};
   if (typeof url !== 'string' || !url.trim()) {
     res.status(400).json({ error: 'paste a Google Maps directions link' });
     return;
@@ -199,7 +199,6 @@ app.post('/api/course', asyncRoute(async (req, res) => {
     const course = await courseFromMapsUrl(url.trim(), {
       speed: Number(speed) || 30,
       targetLapSeconds: Number(targetLapSeconds) || 35,
-      trackWidth: Number(trackWidth) || 11,
     });
     res.json(course);
   } catch (err) {

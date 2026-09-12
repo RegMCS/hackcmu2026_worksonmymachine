@@ -52,10 +52,8 @@ EVENT MEANINGS:
 - took_lead: the driver is now leading the race
 - close_battle: the driver and their rival are within half a second
 - sector_time: the driver completed a sector, split given in seconds
-- final_lap: the driver has started the last of the three laps; "final lap" is
-  now literally correct, so say it
-- lap_complete: the driver finished a lap and is starting the next one; the
-  'lap' field says which lap they are now on
+- final_lap: the driver has entered the last sector of a one-lap race - the run
+  home, not a new lap; call it as the final push, never as "final lap"
 - personal_best: the driver just set their fastest ever time
 - race_finish: the driver has crossed the finish line
 - rival_matched: a pace-matched rival has joined the race

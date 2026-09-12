@@ -12,7 +12,7 @@ The converter rotates by ground distance at `finishAt = 0.8564`, resamples at
 approximately 3m spacing to prevent spline overshoot at the inserted start line,
 and preserves elevation in a parallel array. Runtime length is about 1623m.
 There are nine distinct section names, with FINISH STRAIGHT split across the
-start line, giving ten splits per lap and thirty per race.
+start line, giving ten splits per lap - and a race is one lap.
 
 Integration handoff:
 
@@ -28,7 +28,8 @@ Integration handoff:
 - Persistence: use `geom.def.id` (`buggy-3lap-v1`), not the asset filename
   `circuit-01`. The new ID isolates incompatible old paths without deleting them.
   Room-specific obstacle layouts share this ghost pool; ghosts remain visual.
-- Tuning: speed is 30m/s, car width 1.6m, road width remains surveyed 11m.
+- Tuning: speed is 30m/s, car width 1.6m. Road width is not surveyed per course
+  any more - `TUNING.TRACK_WIDTH` sets it for every course.
   Full-lock turn rate is 34rad/s to satisfy the measured 1.94m return corner
   (2.19× margin). This aggressive setting needs human hand-steering playtesting.
 
@@ -36,7 +37,7 @@ Verification: typecheck, build, and the curvature, knockback, recorder and
 multilap diagnostics. The additional diagnostic checks late/backward ghost
 seeks, finish ordering, seeded layouts, sections, elevation and lap events.
 
-`npm run seed` generates 24 deterministic three-lap opponents. Optional
+`npm run seed` generates 24 deterministic opponents. Optional
 `SEED_DRY_RUN=1` skips upload; `SEED_OUTPUT=/tmp/field.json` saves the generated
 field. Failed finishes, collision-heavy drivers and implausibly slow runs are
 rejected. Local integration seeding uses port 18787 with file store

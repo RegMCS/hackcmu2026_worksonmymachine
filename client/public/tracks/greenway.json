@@ -1,7 +1,6 @@
 {
   "id": "greenway",
   "name": "The Greenway",
-  "trackWidth": 11,
   "sectorCount": 5,
   "samplesPerSegment": 14,
   "centerline": [

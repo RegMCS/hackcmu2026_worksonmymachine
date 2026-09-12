@@ -67,7 +67,7 @@ export function drawCoursePreview(
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-  ctx.lineWidth = Math.max(6, def.trackWidth * scale);
+  ctx.lineWidth = Math.max(6, TUNING_WIDTH * scale);
   ctx.stroke();
   ctx.strokeStyle = '#38bdf8';
   ctx.lineWidth = 1.5;
@@ -206,10 +206,10 @@ export class TrackPicker {
     // A course narrower than its own track has no well-defined lap position, so
     // say so rather than letting the lap counter misbehave mid-race.
     const clearance = def.meta?.clearance;
-    if (clearance !== undefined && clearance < def.trackWidth) {
+    if (clearance !== undefined && clearance < TUNING_WIDTH) {
       this.warn(
         `This route crosses itself (${clearance.toFixed(0)}m apart, track is ` +
-        `${def.trackWidth}m wide), so progress along it may jump where the ` +
+        `${TUNING_WIDTH}m wide), so progress along it may jump where the ` +
         `branches meet.`,
       );
     } else {
@@ -264,8 +264,8 @@ export class TrackPicker {
 
 /** Physics values the server needs to size the course. Kept here so the server
  *  never imports the client's tuning module. */
-function courseRequestTuning(): { speed: number; targetLapSeconds: number; trackWidth: number } {
-  return { speed: TUNING_SPEED, targetLapSeconds: TARGET_LAP_SECONDS, trackWidth: TUNING_WIDTH };
+function courseRequestTuning(): { speed: number; targetLapSeconds: number } {
+  return { speed: TUNING_SPEED, targetLapSeconds: TARGET_LAP_SECONDS };
 }
 
 const escapeHtml = (s: string) =>
@@ -274,7 +274,7 @@ const escapeHtml = (s: string) =>
 // Imported lazily as plain numbers to keep this module free of physics imports.
 import { TUNING } from '../game/physics';
 const TUNING_SPEED = TUNING.BASE_SPEED;
-const TUNING_WIDTH = 11;
+const TUNING_WIDTH = TUNING.TRACK_WIDTH;
 /** Every generated course normalises to this lap time, whatever the real road
  *  length was. Bundled courses keep their surveyed length. */
 export const TARGET_LAP_SECONDS = 35;

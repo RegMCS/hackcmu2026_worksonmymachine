@@ -24,7 +24,6 @@ const bbox = arg('bbox');
 const wayName = arg('way');
 const speed = Number(arg('speed', 30));
 const lapSeconds = Number(arg('lap', 35));
-const trackWidth = Number(arg('width', 11));
 const sectorCount = Number(arg('sectors', 5));
 if (!id || !name || !bbox || !wayName) {
   console.error('need --id --name --bbox lat1,lon1,lat2,lon2 --way "OSM name"');
@@ -90,7 +89,6 @@ const report = shapeReport(scaled, 14, true, speed, 1);
 const def = {
   id,
   name,
-  trackWidth,
   sectorCount,
   samplesPerSegment: 14,
   centerline: scaled.map(([x, y]) => [Math.round(x * 100) / 100, Math.round(y * 100) / 100]),

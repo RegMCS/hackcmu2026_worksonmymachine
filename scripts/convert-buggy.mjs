@@ -27,7 +27,7 @@ const def = {
   id: 'buggy-3lap-v1', name: source.name, units: 'metres', source: source.source,
   attribution: '© OpenStreetMap contributors — https://www.openstreetmap.org/copyright (ODbL). Elevation: Open-Meteo.',
   sourceRevision: execFileSync('git', ['rev-parse', ref], { encoding: 'utf8' }).trim(),
-  sourceFinishAt: source.finishAt, trackWidth: source.roadWidth,
+  sourceFinishAt: source.finishAt,
   sectorCount: sections.length, sections, samplesPerSegment: 16,
   centerline: rotated.map(p => [p[0], p[2]]), elevation: rotated.map(p => p[1]),
   obstacleSeed: 2026, obstacles: [],

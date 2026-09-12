@@ -56,9 +56,12 @@ export const TUNING = {
   CAR_WIDTH: 1.6,
 
   // --- Track -------------------------------------------------------------
-  /** Overrides the width in the track JSON when set. Widen this first if the
-   *  controls feel too hard. Then widen it again. */
-  TRACK_WIDTH_OVERRIDE: null as number | null,
+  /** Road width, metres - the same on every course, bundled or pasted. Courses
+   *  do not carry their own width: a route built from a map has no surveyed one
+   *  to carry, and a player who has learned the road on one course should find
+   *  the next one exactly as wide. Widen this first if the controls feel too
+   *  hard. Then widen it again. */
+  TRACK_WIDTH: 16,
 
   // --- Obstacle collision (discrete punishment for inattention) -----------
   COLLISION_SPEED_FACTOR: 0.35,
@@ -91,7 +94,10 @@ export const TUNING = {
   OIL_STEER_MULT: -1.0,
 
   // --- Race --------------------------------------------------------------
-  LAPS: 3,
+  /** Laps every course is raced over, closed circuit or pasted route alike.
+   *  Courses do not carry their own lap count: one race length keeps every
+   *  leaderboard on the board comparable. */
+  LAPS: 1,
   OBSTACLE_SPACING: 105,
   OBSTACLE_JITTER: 40,
   OBSTACLE_START_CLEARANCE: 70,

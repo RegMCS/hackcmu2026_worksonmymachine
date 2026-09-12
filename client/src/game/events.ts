@@ -16,7 +16,6 @@ export type GameEventType =
   | 'position_gained'
   | 'position_lost'
   | 'took_lead'
-  | 'lap_complete'
   | 'final_lap'
   | 'close_battle'
   | 'rival_matched';
@@ -40,7 +39,6 @@ export const EVENT_PRIORITY: Record<GameEventType, number> = {
   position_lost: 60,
   collision: 55,
   final_lap: 50,
-  lap_complete: 45,
   sector_time: 40,
   near_miss: 35,
   oil: 30,

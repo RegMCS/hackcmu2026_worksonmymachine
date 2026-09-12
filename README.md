@@ -85,8 +85,9 @@ codebase defines gameplay numbers.
 
 The three that matter most, in the order you should reach for them:
 
-1. **`TRACK_WIDTH_OVERRIDE`** - if anyone finds the controls hard, widen the
-   track. Then widen it again. It is currently 300px, about 11x the car's width.
+1. **`TRACK_WIDTH`** - if anyone finds the controls hard, widen the track. Then
+   widen it again. It is currently 16m, ten times the car's width, and it is the
+   width of every course: bundled ones and routes pasted from Google Maps alike.
 2. **`MAX_TURN_RATE`** - how sharply the car responds at full lock.
 3. **`ONE_EURO_MIN_CUTOFF`** / **`ONE_EURO_BETA`** - steering smoothing. If
    steering feels laggy, *reduce smoothing before anything else*, and measure the

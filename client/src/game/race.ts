@@ -211,11 +211,11 @@ export class Race {
       this.bus.emit('sector_time', this.time, { sector: idx % this.geom.sectorBoundaries.length + 1, lap: Math.floor(idx / this.geom.sectorBoundaries.length) + 1, section: this.geom.sectionNameAt(this.geom.sectorEndAt(idx) - 0.001), split: +split.toFixed(2) });
 
       if (idx === 0 && !this.matchmakeDone) void this.matchmake(split);
-      if ((idx + 1) % this.geom.sectorBoundaries.length === 0) {
-        const lap = (idx + 1) / this.geom.sectorBoundaries.length;
-        this.bus.emit('lap_complete', this.time, { lap, laps: this.geom.laps });
-        if (lap === this.geom.laps - 1) this.bus.emit('final_lap', this.time);
-      }
+      // A race is one lap, so there is no lap boundary to call. The last
+      // sector is still the run home, which is what the phrase bank's
+      // final_lap lines were written for.
+      const lastSector = this.geom.sectorBoundaries.length * this.geom.laps - 1;
+      if (idx === lastSector - 1) this.bus.emit('final_lap', this.time);
     }
 
     // --- Personal-best delta ---------------------------------------------

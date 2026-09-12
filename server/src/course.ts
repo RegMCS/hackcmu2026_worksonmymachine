@@ -37,16 +37,13 @@ export interface CourseOptions {
   speed: number;
   /** Desired seconds per lap. Length follows exactly - see shared/course.ts. */
   targetLapSeconds: number;
-  trackWidth: number;
 }
 
 export interface GeneratedCourse {
   id: string;
   name: string;
-  trackWidth: number;
   /** Always false: a pasted route is point to point, not a circuit. */
   closed: false;
-  laps: number;
   sectorCount: number;
   samplesPerSegment: number;
   centerline: Control[];
@@ -60,8 +57,8 @@ export interface GeneratedCourse {
     lapSeconds: number;
     minRadius: number;
     pr: number;
-    /** Metres between the closest two parts of the course. Below trackWidth the
-     *  position along it is ambiguous - the route crosses or doubles back. */
+    /** Metres between the closest two parts of the course. Below the road width
+     *  the position along it is ambiguous - the route crosses or doubles back. */
     clearance: number;
     origin: [number, number];
     destination: [number, number];
@@ -205,9 +202,7 @@ export async function courseFromMapsUrl(rawUrl: string, opts: CourseOptions): Pr
   return {
     id: `url-${hash(full)}`,
     name: label,
-    trackWidth: opts.trackWidth,
     closed: false,
-    laps: 1,
     sectorCount: sections.length,
     samplesPerSegment: SAMPLES_PER_SEGMENT,
     centerline: scaled.map(([x, y]) => [round(x), round(y)] as Control),

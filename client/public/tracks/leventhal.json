@@ -1,7 +1,6 @@
 {
   "id": "leventhal",
   "name": "Post Office Square",
-  "trackWidth": 11,
   "sectorCount": 5,
   "samplesPerSegment": 14,
   "centerline": [

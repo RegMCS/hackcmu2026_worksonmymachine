@@ -72,7 +72,6 @@ export interface TrackObstacleDef {
 export interface TrackDef {
   id: string;
   name: string;
-  trackWidth: number;
   sectorCount: number;
   /**
    * Hand-authored control points, NOT the final polyline. The loader smooths

@@ -1,7 +1,6 @@
 {
   "id": "garden",
   "name": "Public Garden",
-  "trackWidth": 11,
   "sectorCount": 5,
   "samplesPerSegment": 14,
   "centerline": [

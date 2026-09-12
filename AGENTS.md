@@ -36,7 +36,7 @@ npm run check:secrets    # the repo is public; see "Secrets"
 | `diag/knockback.ts` | collisions never stall or reverse the car |
 | `diag/curvature.ts` | every corner is takeable — exits 1 below a 2x radius ratio |
 | `diag/steering.ts` | every sensitivity setting can reach the tightest corner |
-| `diag/multilap.ts` | three-lap sequencing, ghost seeks, standings, events |
+| `diag/multilap.ts` | lap sequencing, ghost seeks, standings, events |
 | `diag/recorder.ts` | ghost sampling rate — **prints only, does not fail** |
 
 `diag/atlas-usage.ts` is excluded: it needs `MONGODB_URI` and reports storage
@@ -76,6 +76,11 @@ the other switches are in `deploy/README.md` section 8.
    enhancement, never a dependency.
 6. **All gameplay constants live in one block** at the top of
    `client/src/game/physics.ts`. Do not scatter magic numbers.
+7. **Every course is raced the same way.** `TUNING.TRACK_WIDTH` and
+   `TUNING.LAPS` apply to all of them — bundled circuits and routes pasted from
+   Google Maps alike. A course carries its shape, not its own width or lap
+   count: a player who has learned the road on one course should find the next
+   one exactly as wide, and every leaderboard measures the same race.
 
 ## Layout
 

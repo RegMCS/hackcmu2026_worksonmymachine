@@ -9,8 +9,6 @@ export interface CourseDef extends TrackDef {
    * only means anything on a closed one.
    */
   closed?: boolean;
-  /** Laps to race. Defaults to TUNING.LAPS closed, and to 1 open. */
-  laps?: number;
   elevation?: number[];
   sections?: { name: string; at: number }[];
   obstacleSeed?: number;
@@ -108,9 +106,8 @@ export class TrackGeometry {
   constructor(def: CourseDef, seed = def.obstacleSeed) {
     this.def = def;
     this.closed = def.closed !== false;
-    // A point-to-point course cannot be lapped: it finishes somewhere else.
-    this.laps = def.laps ?? (this.closed ? TUNING.LAPS : 1);
-    this.trackWidth = TUNING.TRACK_WIDTH_OVERRIDE ?? def.trackWidth;
+    this.laps = TUNING.LAPS;
+    this.trackWidth = TUNING.TRACK_WIDTH;
     this.pts = densify(def.centerline, def.samplesPerSegment ?? 14, this.closed);
 
     const n = this.pts.length;
