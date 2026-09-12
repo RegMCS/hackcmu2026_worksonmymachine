@@ -230,7 +230,11 @@ export class SceneRenderer {
     const left: number[] = [];
     const right: number[] = [];
     const center: number[] = [];
-    for (let i = 0; i < n; i++) {
+    // An open course needs the final point as a real vertex, and has one fewer
+    // quad: there is no segment joining the finish back to the start.
+    const closed = geom.closed;
+    const rings = closed ? n : n + 1;
+    for (let i = 0; i < rings; i++) {
       const s = (i / n) * geom.length;
       const p = geom.pointAt(s);
       const rt = geom.rightAt(s);
@@ -243,10 +247,15 @@ export class SceneRenderer {
       left.push(lx, e + LIFT, ly);
       right.push(rx, e + LIFT, ry);
       center.push(p.x, e + LIFT, p.y);
-      const j = (i + 1) % n;
+      // Skip the closing quad on an open course; it would span the whole map
+      // from the finish straight back to the start.
+      if (!closed && i === rings - 1) continue;
+      const j = (i + 1) % rings;
       idx.push(2 * i, 2 * i + 1, 2 * j, 2 * i + 1, 2 * j + 1, 2 * j);
     }
-    for (const arr of [left, right, center]) arr.push(arr[0], arr[1], arr[2]);
+    // The edge lines repeat their first vertex to close the ring - only on a
+    // course that actually is one.
+    if (closed) for (const arr of [left, right, center]) arr.push(arr[0], arr[1], arr[2]);
 
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(surf, 3));
