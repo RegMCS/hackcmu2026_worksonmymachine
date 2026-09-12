@@ -1,6 +1,10 @@
 import type { RunSummary } from '../../../shared/types';
 import type { Standing } from '../game/racers';
-import { RACER_COLORS } from '../render/scene';
+// The palette, not the renderer. hud/ previously reached into render/scene.ts,
+// which is the module being swapped from Canvas 2D to Three.js - so the HUD
+// would have broken on a change that has nothing to do with it. carSprites owns
+// the colour list that colorIndex indexes into; take it from there.
+import { CAR_COLOR_HEX } from '../render/carSprites';
 import { formatDelta, formatTime } from '../util/math';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -100,7 +104,7 @@ export class Hud {
       existing.delete(s.racer.id);
       li.className = s.racer.isLocalPlayer ? 'me' : '';
       li.querySelector('.pos')!.textContent = String(s.position);
-      const color = RACER_COLORS[s.racer.colorIndex % RACER_COLORS.length];
+      const color = CAR_COLOR_HEX[s.racer.colorIndex % CAR_COLOR_HEX.length];
       li.querySelector('.nm')!.innerHTML =
         `<span class="dot" style="background:${color}"></span>${escapeHtml(s.racer.displayName)}`;
       li.querySelector('.gap')!.textContent =
@@ -119,7 +123,7 @@ export class Hud {
       if (!m) {
         m = document.createElement('div');
         m.className = s.racer.isLocalPlayer ? 'marker me' : 'marker';
-        m.style.background = RACER_COLORS[s.racer.colorIndex % RACER_COLORS.length];
+        m.style.background = CAR_COLOR_HEX[s.racer.colorIndex % CAR_COLOR_HEX.length];
         this.markersEl.appendChild(m);
         this.markers.set(s.racer.id, m);
       }
