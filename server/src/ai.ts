@@ -67,6 +67,9 @@ RULES, all mandatory:
 - Never invent facts that are not in the context.
 - Say times naturally and rounded, e.g. "nine seconds" not "nine point eight four".
 - No emoji, no quotation marks, no preamble, no markdown.
+- No stage directions or action text of any kind. Never write things like
+  *whispering* or (sighs): this line is spoken aloud verbatim, so a stage
+  direction is read out as words.
 Return only the sentence.`;
 
 /**
@@ -101,6 +104,22 @@ export interface CommentaryRequest {
   details?: Record<string, string | number | boolean>;
   /** Persona key from shared/personas. Unknown or absent falls back to `hype`. */
   persona?: string;
+}
+
+/**
+ * Strips *whispering* / (sighs) style stage directions.
+ *
+ * The prompt already forbids them, but this line is handed straight to TTS and
+ * spoken verbatim, so a single slip is read aloud as "asterisk whispering
+ * asterisk". Observed from the deadpan persona, whose character description all
+ * but invites one. Cheap to strip, embarrassing to leave in.
+ */
+function stripStageDirections(line: string): string {
+  return line
+    .replace(/\*[^*]*\*/g, ' ')
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 export async function generateCommentary(req: CommentaryRequest): Promise<string | null> {
@@ -150,7 +169,9 @@ export async function generateCommentary(req: CommentaryRequest): Promise<string
     res = await ai.models.generateContent({ model: MODEL, contents: ctx, config: base });
   }
 
-  const text = (res.text ?? '').trim().replace(/^["']|["']$/g, '').split('\n')[0];
+  const text = stripStageDirections(
+    (res.text ?? '').trim().replace(/^["']|["']$/g, '').split('\n')[0],
+  );
   return text || null;
 }
 
