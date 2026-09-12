@@ -10,22 +10,38 @@ export const TUNING = {
   // --- Steering ----------------------------------------------------------
   /** Full lock covers the surveyed return loop (1.94m minimum radius). */
   MAX_TURN_RATE: 34,
-  /** Hand rotation, in degrees, that counts as full lock in either direction. */
-  FULL_LOCK_DEG: 55,
+  /** Hand rotation, in degrees, that counts as full lock in either direction.
+   *  Slider midpoint, not a fixed value - see steerFeelFor(). */
+  FULL_LOCK_DEG: 72.5,
   /** Steering response curve. 1 = linear; >1 softens the centre for fine control.
-   *  This is the midpoint of the in-game sensitivity slider, not a fixed value -
-   *  see steerGammaFor(). It has to be well above 1 because the track asks for a
-   *  huge dynamic range: 95% of the lap needs under 5% of full lock, but the
-   *  return loop needs 46% of it. A near-linear curve crams all normal driving
-   *  into the first few degrees of hand rotation, where tracking jitter lives. */
-  STEER_GAMMA: 2.2,
-  /** Ends of the sensitivity slider. Both settings keep full lock at
-   *  FULL_LOCK_DEG - turning sensitivity down softens the centre, it does not
-   *  reduce the maximum turn rate. Capping the turn rate instead would put the
-   *  return loop out of reach, and with no brake an untakeable corner is
-   *  untakeable, not merely hard. */
+   *  Slider midpoint, not a fixed value. It has to be well above 1 because the
+   *  track asks for a huge dynamic range: 95% of the lap needs under 5% of full
+   *  lock, but the return loop needs 46% of it. A near-linear curve crams all
+   *  normal driving into the first few degrees of hand rotation, where tracking
+   *  jitter lives. */
+  STEER_GAMMA: 2.45,
+  /** Ends of the sensitivity slider.
+   *
+   *  The slider moves the curve AND how far the hands travel to reach full lock.
+   *  It never touches MAX_TURN_RATE: capping the rate would put the return loop
+   *  out of reach, and with no brake an untakeable corner is untakeable, not
+   *  merely hard.
+   *
+   *  Curve alone is not enough, which is worth knowing before someone trims this
+   *  back to one knob. MAX_TURN_RATE is 2.2x what the tightest corner needs, so
+   *  with full lock a mere 55 degrees away the top of the range stays violent
+   *  however flat the centre is - at gamma 3.1 a 30-degree hand rotation still
+   *  span the car at ~300 deg/sec. Widening the travel is what calms it.
+   *
+   *  scripts/diag/steering.ts asserts the tightest corner on every course stays
+   *  reachable across the whole slider. */
   STEER_GAMMA_SHARPEST: 1.3,
-  STEER_GAMMA_SOFTEST: 3.1,
+  STEER_GAMMA_SOFTEST: 3.6,
+  FULL_LOCK_DEG_SHARPEST: 45,
+  FULL_LOCK_DEG_SOFTEST: 100,
+  /** Hand rotation a player can actually produce holding a mimed wheel. The
+   *  softest setting must keep the tightest corner inside this. */
+  HAND_ROTATION_BUDGET_DEG: 90,
 
   // --- Steering smoothing (one-euro filter) -------------------------------
   //  Minimum smoothing that removes jitter. Over-smoothing adds latency, which is
@@ -131,14 +147,24 @@ export interface StepInput {
   gamma?: number;
 }
 
+/** How the steering feels: the response curve, and the hand travel to full lock. */
+export interface SteerFeel {
+  gamma: number;
+  fullLockDeg: number;
+}
+
 /**
- * Maps the sensitivity slider (0 = calmest, 1 = twitchiest) onto the response
- * curve. Lives here rather than in the HUD because it is a gameplay constant
- * wearing a UI hat, and the two ends have to stay next to the value they bound.
+ * Maps the sensitivity slider (0 = calmest, 1 = twitchiest) onto the feel.
+ * Lives here rather than in the HUD because these are gameplay constants
+ * wearing a UI hat, and the ends have to stay next to the values they bound.
  */
-export function steerGammaFor(sensitivity: number): number {
+export function steerFeelFor(sensitivity: number): SteerFeel {
   const t = clamp(sensitivity, 0, 1);
-  return TUNING.STEER_GAMMA_SOFTEST + (TUNING.STEER_GAMMA_SHARPEST - TUNING.STEER_GAMMA_SOFTEST) * t;
+  const lerp = (soft: number, sharp: number) => soft + (sharp - soft) * t;
+  return {
+    gamma: lerp(TUNING.STEER_GAMMA_SOFTEST, TUNING.STEER_GAMMA_SHARPEST),
+    fullLockDeg: lerp(TUNING.FULL_LOCK_DEG_SOFTEST, TUNING.FULL_LOCK_DEG_SHARPEST),
+  };
 }
 
 export interface StepEvent {

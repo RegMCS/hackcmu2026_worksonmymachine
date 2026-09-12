@@ -9,6 +9,11 @@ export class SteeringController {
   mode: SteeringMode = 'hands';
   neutralAngle = 0;
   calibrated = false;
+  /**
+   * Hand rotation that counts as full lock, from the sensitivity slider. The
+   * slider widens this as well as softening the curve - see steerFeelFor().
+   */
+  fullLockDeg: number = TUNING.FULL_LOCK_DEG;
 
   /** Unsmoothed steering, for the debug overlay. */
   raw = 0;
@@ -82,7 +87,7 @@ export class SteeringController {
 
     this.secondsSinceHands = 0;
     const rel = wrapAngle(frame!.rawAngle! - this.neutralAngle);
-    const full = (TUNING.FULL_LOCK_DEG * Math.PI) / 180;
+    const full = (this.fullLockDeg * Math.PI) / 180;
     this.raw = clamp(rel / full, -1, 1);
     this.value = clamp(this.filter.filter(this.raw, timeSec), -1, 1);
     return this.value;

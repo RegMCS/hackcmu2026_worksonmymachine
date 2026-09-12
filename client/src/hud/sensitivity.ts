@@ -1,4 +1,4 @@
-import { steerGammaFor } from '../game/physics';
+import { steerFeelFor, type SteerFeel } from '../game/physics';
 
 /**
  * Steering sensitivity slider.
@@ -8,7 +8,7 @@ import { steerGammaFor } from '../game/physics';
  * the player back through setup to act on it loses the moment. Both sliders are
  * wired here so they cannot drift out of step.
  *
- * The value is a 0..1 feel knob, not a turn rate. See steerGammaFor().
+ * The value is a 0..1 feel knob, not a turn rate. See steerFeelFor().
  */
 
 const KEY = 'ghostrace.sensitivity';
@@ -16,10 +16,10 @@ const DEFAULT = 0.5;
 
 /** Slider bands, coarsest first. Named so the number means something. */
 const BANDS: { upTo: number; name: string; hint: string }[] = [
-  { upTo: 0.2, name: 'Very calm', hint: 'Big, deliberate hand movements. Forgiving of shaky tracking.' },
-  { upTo: 0.4, name: 'Calm', hint: 'Steady hands win. Easy to hold a line on the straights.' },
-  { upTo: 0.6, name: 'Balanced', hint: 'The default. Gentle near centre, full lock still reaches the hairpin.' },
-  { upTo: 0.8, name: 'Quick', hint: 'Small movements bite. Rewards precise hands.' },
+  { upTo: 0.2, name: 'Very calm', hint: 'Turn the wheel a long way to turn at all. Forgiving of shaky tracking.' },
+  { upTo: 0.4, name: 'Calm', hint: 'Wide, deliberate movements. Easy to hold a line on the straights.' },
+  { upTo: 0.6, name: 'Balanced', hint: 'The default. Roughly a quarter turn for the tightest corner.' },
+  { upTo: 0.8, name: 'Quick', hint: 'A short throw. Rewards precise hands.' },
   { upTo: 1.01, name: 'Very quick', hint: 'Nearly direct. Every tremor steers the car.' },
 ];
 
@@ -40,16 +40,16 @@ export function storedSensitivity(): number {
   return Number.isFinite(raw) && raw >= 0 && raw <= 1 ? raw : DEFAULT;
 }
 
-/** The response curve for the stored setting. */
-export function storedSteerGamma(): number {
-  return steerGammaFor(storedSensitivity());
+/** The steering feel for the stored setting. */
+export function storedSteerFeel(): SteerFeel {
+  return steerFeelFor(storedSensitivity());
 }
 
 /**
  * Wires every `.sensitivity` slider on the page and calls `onChange` with the
- * new curve whenever one of them moves.
+ * new feel whenever one of them moves.
  */
-export function buildSensitivityControls(onChange: (gamma: number) => void): void {
+export function buildSensitivityControls(onChange: (feel: SteerFeel) => void): void {
   const sliders = Array.from(
     document.querySelectorAll<HTMLInputElement>('input.sensitivity'),
   );
@@ -71,7 +71,7 @@ export function buildSensitivityControls(onChange: (gamma: number) => void): voi
       value = Number(s.value) / 100;
       localStorage.setItem(KEY, String(value));
       paint();
-      onChange(steerGammaFor(value));
+      onChange(steerFeelFor(value));
     });
   }
 

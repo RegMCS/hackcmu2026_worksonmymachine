@@ -35,6 +35,7 @@ npm run check:secrets    # the repo is public; see "Secrets"
 |---|---|
 | `diag/knockback.ts` | collisions never stall or reverse the car |
 | `diag/curvature.ts` | every corner is takeable — exits 1 below a 2x radius ratio |
+| `diag/steering.ts` | every sensitivity setting can reach the tightest corner |
 | `diag/multilap.ts` | three-lap sequencing, ghost seeks, standings, events |
 | `diag/recorder.ts` | ghost sampling rate — **prints only, does not fail** |
 
@@ -93,11 +94,16 @@ scripts/diag/  assertions about physics and geometry
 
 ## Gotchas that have already bitten us
 
-- **The steering sensitivity slider changes the response curve, never the turn
-  rate.** Full lock stays at `FULL_LOCK_DEG` at every setting. Re-map it onto
-  `MAX_TURN_RATE` and the calmest setting puts the return loop out of reach -
-  see the next point. `STEER_GAMMA` is the midpoint of that slider, not a fixed
-  value; `curvature.ts` only checks full lock, so it will not catch a bad curve.
+- **The steering sensitivity slider moves the response curve and the hand
+  travel, never `MAX_TURN_RATE`.** Re-map it onto the turn rate and the calmest
+  setting puts the return loop out of reach — see the next point. `STEER_GAMMA`
+  and `FULL_LOCK_DEG` are the *midpoints* of that slider, not fixed values.
+- **Softening the curve alone does not calm the steering**, which cost a round
+  trip to learn. `MAX_TURN_RATE` is 2.2x what the tightest corner needs, so with
+  full lock only 55° away the top of the range stays violent however flat the
+  centre is — at gamma 3.1 a 30° hand rotation still span the car at ~300°/sec.
+  Widening the hand travel to full lock is what actually fixes it. `curvature.ts`
+  checks only full lock and will not catch this; `steering.ts` will.
 - **There is no brake**, so a corner tighter than the car's minimum turn radius
   is *impossible*, not just hard. After any track edit run
   `scripts/diag/curvature.ts` and keep the ratio above ~2x. A first version of

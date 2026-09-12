@@ -20,7 +20,7 @@ import { Hud, renderLeaderboard, escapeHtml } from './hud/hud';
 import { TrackPicker, type PickableCourse } from './hud/trackPicker';
 import { describeStyle, findRivalRun, nearestNeighbour, renderSectorBars, rivalLine } from './hud/results';
 import { buildPersonaPicker } from './hud/personaPicker';
-import { buildSensitivityControls, storedSteerGamma } from './hud/sensitivity';
+import { buildSensitivityControls, storedSteerFeel } from './hud/sensitivity';
 import { Commentator } from './audio/commentary';
 import { Sfx } from './audio/sfx';
 import { unlockAudio } from './audio/context';
@@ -152,8 +152,10 @@ async function boot(): Promise<void> {
     commentator.voiceId = voiceId;
   });
 
-  buildSensitivityControls((gamma) => {
-    if (race) race.steerGamma = gamma;
+  steering.fullLockDeg = storedSteerFeel().fullLockDeg;
+  buildSensitivityControls((feel) => {
+    if (race) race.steerGamma = feel.gamma;
+    steering.fullLockDeg = feel.fullLockDeg;
   });
 
   installRace(geom);
@@ -242,7 +244,7 @@ function installRace(geom: TrackGeometry): void {
   });
   // Reapplied here, not once at boot: switching course builds a new Race and
   // would otherwise silently drop the player's sensitivity back to the default.
-  race.steerGamma = storedSteerGamma();
+  race.steerGamma = storedSteerFeel().gamma;
   race.bus.on((e) => {
     if (!race) return;
     switch (e.type) {
@@ -719,7 +721,7 @@ function updateDebug(): void {
     `  source   ${l?.label ?? 'n/a - no camera'}`,
     `inference  ${tracker ? tracker.inferenceMs.toFixed(1) : '--'} ms`,
     `render     ${scene ? `${scene.stats.renderMs.toFixed(1)} ms submit, ${scene.stats.calls} draw calls, ${scene.stats.triangles} tris` : '--'}`,
-    `steer      raw ${steering.raw.toFixed(3)}  smooth ${steering.value.toFixed(3)}${race ? `  gamma ${race.steerGamma.toFixed(2)}` : ''}`,
+    `steer      raw ${steering.raw.toFixed(3)}  smooth ${steering.value.toFixed(3)}${race ? `  gamma ${race.steerGamma.toFixed(2)}` : ''}  lock ${steering.fullLockDeg.toFixed(0)}deg`,
     `mode       ${mode}${steering.calibrated ? ' (calibrated)' : ''}  video ${videoPanel ? 'panel' : 'fullscreen'} (V)`,
     race ? `race       ${race.phase} t=${race.time.toFixed(2)} s=${race.car.trackDistance.toFixed(0)}/${race.geom.length.toFixed(0)}` : '',
     race ? `penalty    speed x${(race.car.collisionPenalty * (race.car.offTrack ? TUNING.OFF_TRACK_SPEED_FACTOR : 1)).toFixed(2)}${race.oiled ? ' OILED' : ''}` : '',

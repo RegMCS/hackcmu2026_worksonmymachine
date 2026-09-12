@@ -13,7 +13,7 @@
     "build": "vite build && tsc -p server/tsconfig.json",
     "start": "node dist/server/src/index.js",
     "typecheck": "tsc -p client/tsconfig.json --noEmit && tsc -p server/tsconfig.json --noEmit",
-    "diag": "tsx scripts/diag/knockback.ts && tsx scripts/diag/curvature.ts && tsx scripts/diag/multilap.ts && tsx scripts/diag/recorder.ts",
+    "diag": "tsx scripts/diag/knockback.ts && tsx scripts/diag/curvature.ts && tsx scripts/diag/steering.ts && tsx scripts/diag/multilap.ts && tsx scripts/diag/recorder.ts",
     "check:secrets": "node scripts/check-secrets.mjs",
     "seed": "tsx scripts/seed-runs.ts",
     "phrases": "node scripts/generate-phrases.mjs",
