@@ -1,0 +1,26 @@
+[
+  {
+    "id": "buggy-3lap-v1",
+    "file": "/tracks/circuit-01.json",
+    "name": "CMU Buggy Course",
+    "blurb": "The surveyed CMU course - 1623m, the long one"
+  },
+  {
+    "id": "garden",
+    "file": "/tracks/garden.json",
+    "name": "Public Garden",
+    "blurb": "Boston park perimeter, flowing and open"
+  },
+  {
+    "id": "greenway",
+    "file": "/tracks/greenway.json",
+    "name": "The Greenway",
+    "blurb": "Long and sinuous, few hard corners"
+  },
+  {
+    "id": "leventhal",
+    "file": "/tracks/leventhal.json",
+    "name": "Post Office Square",
+    "blurb": "Tight city block, scaled up to size"
+  }
+]

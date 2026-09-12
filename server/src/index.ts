@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path';
 import { createStore, type RunStore } from './store.js';
 import { generateCommentary, mintElevenLabsToken, synthesizeSpeech, aiStatus, listVoices } from './ai.js';
 import { attachRelay, lanAddresses, roomCount } from './relay.js';
+import { courseFromMapsUrl } from './course.js';
 import type { Run } from '../../shared/types';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -184,6 +185,30 @@ app.post('/api/tts', asyncRoute(async (req, res) => {
 }));
 
 /** One-click reset for repeated demos. Keeps the synthetic seed pool by default. */
+/**
+ * Builds a course from a pasted Google Maps directions link. The client sends
+ * its own tuning so the server never has to import the physics module.
+ */
+app.post('/api/course', asyncRoute(async (req, res) => {
+  const { url, speed, targetLapSeconds, trackWidth } = req.body ?? {};
+  if (typeof url !== 'string' || !url.trim()) {
+    res.status(400).json({ error: 'paste a Google Maps directions link' });
+    return;
+  }
+  try {
+    const course = await courseFromMapsUrl(url.trim(), {
+      speed: Number(speed) || 30,
+      targetLapSeconds: Number(targetLapSeconds) || 35,
+      trackWidth: Number(trackWidth) || 11,
+    });
+    res.json(course);
+  } catch (err) {
+    // These are all user-fixable (wrong link, no route), so say so plainly
+    // rather than surfacing a 500 the player cannot act on.
+    res.status(422).json({ error: (err as Error).message });
+  }
+}));
+
 app.post('/api/reset', asyncRoute(async (req, res) => {
   const trackId = String(req.body?.trackId ?? 'circuit-01');
   const keepSynthetic = req.body?.keepSynthetic !== false;
