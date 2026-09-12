@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ghost Wheel</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="cam">
+    <video id="video" playsinline muted></video>
+    <canvas id="camOverlay" width="240" height="180"></canvas>
+    <div id="camHint">no hands</div>
+  </div>
+
+  <div id="hud" hidden>
+    <div class="hud-top">
+      <div class="pill"><span class="lbl">LAP</span><span id="lap">0/3</span></div>
+      <div class="pill"><span class="lbl">POS</span><span id="pos">1/1</span></div>
+      <div class="pill"><span class="lbl">TIME</span><span id="time">0:00.000</span></div>
+      <div class="pill"><span class="lbl">BEST</span><span id="best">--</span></div>
+    </div>
+    <div id="status"></div>
+    <div id="flash"></div>
+    <div class="hud-bottom">
+      <div id="speed"><span id="speedVal">0</span><span class="unit">km/h</span></div>
+      <div id="steer"><div id="steerMarker"></div></div>
+    </div>
+    <div id="subtitle"></div>
+    <button id="muteBtn" title="Toggle commentator">🔊</button>
+  </div>
+
+  <button id="settingsBtn" class="fab" title="Commentator voice and tone">🎙</button>
+  <div id="settings" class="drawer" hidden>
+    <h3>Commentator</h3>
+    <label>Voice
+      <select id="voiceSel"></select>
+    </label>
+    <label>Tone
+      <select id="toneSel"></select>
+    </label>
+    <label id="customToneWrap" hidden>Describe the narrator
+      <textarea id="customTone" rows="3" maxlength="300" placeholder="e.g. a sleepy grandpa who keeps forgetting the driver's name"></textarea>
+    </label>
+    <div class="row">
+      <button id="testVoice">Test line</button>
+      <button id="closeSettings">Close</button>
+    </div>
+    <p id="settingsMsg" class="msg"></p>
+  </div>
+
+  <div id="lobby" class="overlay">
+    <div class="panel">
+      <h1>GHOST WHEEL</h1>
+      <p class="tag">Grip an invisible steering wheel in front of your webcam and turn it to steer. Open both hands flat, fingers spread, to brake.</p>
+      <label>Driver name <input id="name" maxlength="16" placeholder="e.g. Aden" /></label>
+      <label>Track
+        <select id="track">
+          <option value="buggy">CMU Buggy Course (1.6 km, real hills)</option>
+          <option value="fantasy">Fantasy Loop (flat)</option>
+        </select>
+      </label>
+      <div class="row">
+        <button id="soloBtn" class="primary">Solo race</button>
+      </div>
+      <div class="row">
+        <input id="room" maxlength="12" placeholder="room code" />
+        <button id="joinBtn">Join room</button>
+      </div>
+      <div id="roomPanel" hidden>
+        <h3>Room <span id="roomCode"></span></h3>
+        <p id="lanHint" class="msg"></p>
+        <ul id="players"></ul>
+        <button id="startBtn" class="primary">Start race for everyone</button>
+      </div>
+      <p id="lobbyMsg" class="msg"></p>
+      <p class="credit">Buggy course: map data © OpenStreetMap contributors (ODbL), elevation by Open-Meteo.</p>
+    </div>
+  </div>
+
+  <div id="results" class="overlay" hidden>
+    <div class="panel">
+      <h1>RACE OVER</h1>
+      <ol id="standings"></ol>
+      <button id="againBtn" class="primary">Back to lobby</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
