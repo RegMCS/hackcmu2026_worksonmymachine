@@ -11,7 +11,10 @@ export const CAR_COLOR_NAMES = ['red', 'blue', 'green', 'yellow', 'black'] as co
 export type CarColorName = (typeof CAR_COLOR_NAMES)[number];
 
 /** HUD swatches, matched to the sprite artwork so dots and cars agree. */
-export const CAR_COLOR_HEX = ['#e8624a', '#4aa3e0', '#5cbf4a', '#f0c419', '#8b93a3'] as const;
+// The palette moved to shared/palette.ts: it is wire contract (colorIndex in
+// shared/net.ts indexes into it), not a property of the sprite loader. Re-exported
+// here so existing importers do not change.
+export { CAR_COLOR_HEX } from '../../../shared/palette';
 
 export const CAR_SHAPES = [1, 2, 3, 4, 5] as const;
 export const SHAPE_LABELS = ['Saloon', 'Coupe', 'Hatch', 'Van', 'Racer'] as const;

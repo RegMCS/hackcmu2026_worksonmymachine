@@ -1,10 +1,10 @@
 import type { RunSummary } from '../../../shared/types';
 import type { Standing } from '../game/racers';
-// The palette, not the renderer. hud/ previously reached into render/scene.ts,
-// which is the module being swapped from Canvas 2D to Three.js - so the HUD
-// would have broken on a change that has nothing to do with it. carSprites owns
-// the colour list that colorIndex indexes into; take it from there.
-import { CAR_COLOR_HEX } from '../render/carSprites';
+// hud/ imports nothing from render/. It previously took its colours from
+// render/scene.ts, the module being swapped to Three.js; carSprites.ts is no
+// safer, since a 3D renderer may drop 2D sprites entirely. The palette is wire
+// contract, so it lives in shared/ and the HUD reads it from there.
+import { carColor } from '../../../shared/palette';
 import { formatDelta, formatTime } from '../util/math';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -104,7 +104,7 @@ export class Hud {
       existing.delete(s.racer.id);
       li.className = s.racer.isLocalPlayer ? 'me' : '';
       li.querySelector('.pos')!.textContent = String(s.position);
-      const color = CAR_COLOR_HEX[s.racer.colorIndex % CAR_COLOR_HEX.length];
+      const color = carColor(s.racer.colorIndex);
       li.querySelector('.nm')!.innerHTML =
         `<span class="dot" style="background:${color}"></span>${escapeHtml(s.racer.displayName)}`;
       li.querySelector('.gap')!.textContent =
@@ -123,7 +123,7 @@ export class Hud {
       if (!m) {
         m = document.createElement('div');
         m.className = s.racer.isLocalPlayer ? 'marker me' : 'marker';
-        m.style.background = CAR_COLOR_HEX[s.racer.colorIndex % CAR_COLOR_HEX.length];
+        m.style.background = carColor(s.racer.colorIndex);
         this.markersEl.appendChild(m);
         this.markers.set(s.racer.id, m);
       }
