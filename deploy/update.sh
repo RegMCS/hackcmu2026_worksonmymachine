@@ -1,20 +1,37 @@
 #!/usr/bin/env bash
-# Pull the current commit and restart the service, replacing the hand-typed
-# sequence in deploy/README.md section 3.
+# Deploy a commit and restart the service.
 #
-#   sudo /opt/ghostrace/deploy/update.sh [branch]
+#   sudo /usr/local/sbin/ghostrace-update [branch] [commit]
 #
-# Deliberately manual: there is no webhook and no auto-deploy. The box that
-# serves the demo is the box someone is standing in front of, and a push that
-# lands mid-race is worse than a deploy that waits five minutes.
+# Run by hand, or by the deploy job in .github/workflows/ci.yml after CI passes
+# on main. When a commit is given it is deployed exactly, rather than whatever
+# happens to be at the tip of the branch by the time this runs - two merges
+# landing close together must not deploy the second one's code under the first
+# one's green tick.
+#
+# Exit codes: 0 deployed (or already current), 75 declined on purpose, 1 failed.
 
 set -euo pipefail
+
+# Box-local settings. This is the only way to set QUIET_MINUTES for automatic
+# deploys: the CI job reaches this script through sudo, which strips the
+# environment, so the knob has to live on the box rather than in the workflow.
+# shellcheck source=/dev/null
+[ -r /etc/default/ghostrace-deploy ] && . /etc/default/ghostrace-deploy
 
 APP_DIR=${APP_DIR:-/opt/ghostrace}
 APP_USER=${APP_USER:-ghostrace}
 SERVICE=${SERVICE:-ghostrace}
-BRANCH=${1:-ghostrace}
+BRANCH=${1:-main}
+COMMIT=${2:-}
 HEALTH_URL=${HEALTH_URL:-http://localhost:8787/api/health}
+RECENT_URL=${RECENT_URL:-http://localhost:8787/api/recent}
+# Minutes of no completed runs required before an automatic deploy proceeds.
+# 0 disables the check. Turn it up on demo day; see deploy/README.md.
+QUIET_MINUTES=${QUIET_MINUTES:-0}
+FORCE=${FORCE:-0}
+
+echo "ghostrace-update $(date -u +%FT%TZ)  script mtime $(date -u -r "$0" +%FT%TZ 2>/dev/null || echo '?')"
 
 cd "$APP_DIR"
 
@@ -22,11 +39,50 @@ cd "$APP_DIR"
 # node_modules or dist would look fine now and break the next unattended run.
 as_app() { sudo -u "$APP_USER" "$@"; }
 
+# --- Reasons to decline -----------------------------------------------------
+# A hold file is the switch for "someone is standing in front of this box".
+# Checked before the fetch so holding costs nothing.
+if [ -e "$APP_DIR/DEPLOY_HOLD" ] && [ "$FORCE" != 1 ]; then
+  echo "DECLINED: $APP_DIR/DEPLOY_HOLD exists."
+  cat "$APP_DIR/DEPLOY_HOLD" 2>/dev/null || true
+  echo "Remove it to resume deploys, or re-run with FORCE=1."
+  exit 75
+fi
+
+# A restart drops every in-flight connection. A completed run in the last few
+# minutes means someone is playing, and the visible symptom of restarting under
+# them is their race ending, not a log line anyone will read.
+if [ "$QUIET_MINUTES" != 0 ] && [ "$FORCE" != 1 ]; then
+  recent=$(curl -fsS --max-time 5 "$RECENT_URL" 2>/dev/null || echo '')
+  if [ -n "$recent" ]; then
+    age=$(printf '%s' "$recent" | node -e '
+      let s = "";
+      process.stdin.on("data", (d) => (s += d)).on("end", () => {
+        try {
+          const r = JSON.parse(s);
+          // No runs yet, or a store with nothing in it: nobody is playing.
+          if (!r || !r.createdAt) return console.log(999999);
+          console.log(Math.floor((Date.now() - Date.parse(r.createdAt)) / 60000));
+        } catch { console.log(999999); }
+      });' 2>/dev/null || echo 999999)
+    if [ "$age" -lt "$QUIET_MINUTES" ]; then
+      echo "DECLINED: a run finished ${age}m ago, quiet window is ${QUIET_MINUTES}m."
+      exit 75
+    fi
+  fi
+fi
+
+# --- Fetch ------------------------------------------------------------------
 previous=$(as_app git rev-parse --short HEAD 2>/dev/null || echo none)
 echo "current: $previous"
 
-as_app git fetch --depth 1 origin "$BRANCH"
+if [ -n "$COMMIT" ]; then
+  as_app git fetch --depth 1 origin "$COMMIT"
+else
+  as_app git fetch --depth 1 origin "$BRANCH"
+fi
 target=$(as_app git rev-parse --short FETCH_HEAD)
+
 if [ "$target" = "$previous" ]; then
   echo "already at $target - nothing to do"
   exit 0
